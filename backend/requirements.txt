@@ -1,0 +1,10 @@
+fastapi==0.115.14
+pydantic==2.11.7
+email-validator==2.2.0
+SQLAlchemy==2.0.41
+psycopg[binary]==3.2.9
+alembic==1.16.2
+uvicorn==0.34.3
+argon2-cffi==25.1.0
+pytest==8.4.1
+httpx==0.28.1

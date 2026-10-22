@@ -1,0 +1,5 @@
+# Optional host access; never exposed on all interfaces.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5434:5432"

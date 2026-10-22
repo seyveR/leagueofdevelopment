@@ -1,0 +1,29 @@
+import {useEffect,useRef,useState} from 'react';
+import {Link,useParams} from 'react-router-dom';
+import {api} from '../data/api';
+import type {Result} from '../domain/api-models';
+import './reports.css';
+
+const date=(value:string|null)=>value?new Date(value).toLocaleString('ru-RU'):'—';
+function useReport<T>(load:()=>Promise<T>,key:string){
+  const[value,setValue]=useState<T>(),[error,setError]=useState(''),[revision,setRevision]=useState(0);const loader=useRef(load);loader.current=load;
+  useEffect(()=>{let live=true;setValue(undefined);setError('');void loader.current().then(data=>{if(live)setValue(data);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[key,revision]);
+  return {value,error,retry:()=>setRevision(n=>n+1)};
+}
+function Pending({error,retry}:{error:string;retry:()=>void}){return error?<div className="card"><p className="error" role="alert">{error}</p><button onClick={retry}>Повторить загрузку</button></div>:<p role="status">Загрузка…</p>;}
+function Pagination({offset,total,limit,change}:{offset:number;total:number;limit:number;change:(n:number)=>void}){return total>limit?<nav className="report-pagination" aria-label="Страницы отчёта"><button className="secondary compact" disabled={offset===0} onClick={()=>change(Math.max(0,offset-limit))}>Назад</button><span>{offset+1}–{Math.min(offset+limit,total)} из {total}</span><button className="secondary compact" disabled={offset+limit>=total} onClick={()=>change(offset+limit)}>Далее</button></nav>:null;}
+function Scores({result}:{result:Result}){return <div className="report-scores">{(['attention','memory'] as const).map(key=><div key={key}><span>{key==='attention'?'Внимание':'Память'}</span><strong>{result.scores[key].correct} из {result.scores[key].total}</strong><small>{result.scores[key].percent}% правильных</small></div>)}</div>;}
+export function AdminCompletions(){
+  const[offset,setOffset]=useState(0),load=useReport(()=>api.admin.completions(offset),String(offset));
+  return <><Link className="back" to="/admin">← Статистика</Link><h2>Завершённые прохождения</h2>{!load.value?<Pending {...load}/>:<><p className="muted">Всего: {load.value.total}. Один ребёнок может пройти задания несколько раз.</p><div className="stack">{load.value.items.map(({session,parent,result})=><Link className="card report-link" to={`/admin/completions/${session.id}`} key={session.id}><div className="report-title"><h3>{session.child_snapshot.name} · {session.child_snapshot.age} лет</h3><span className="text-link">Подробнее →</span></div><p className="micro">{date(session.completed_at)} · {session.child_snapshot.city}</p><p className="report-email">Родитель: {parent.email}</p><Scores result={result}/><p className="micro">Правильных ответов: {result.scores.correct} из {result.scores.total}</p></Link>)}</div>{!load.value.items.length&&<section className="card"><p>Завершённых прохождений пока нет.</p></section>}<Pagination {...load.value} change={setOffset}/></>}</>;
+}
+export function AdminCompletion(){
+  const{id}=useParams(),load=useReport(()=>api.admin.completion(id!),id!);
+  if(!load.value)return <><Link className="back" to="/admin/completions">← Все прохождения</Link><Pending {...load}/></>;
+  const{session,parent,result,answers,task_set_version}=load.value;
+  return <><Link className="back" to="/admin/completions">← Все прохождения</Link><h2>Результат прохождения</h2><section className="card"><h3>{session.child_snapshot.name} · {session.child_snapshot.age} лет</h3><p className="report-email">Родитель: {parent.email}</p><dl className="report-facts"><div><dt>Город</dt><dd>{session.child_snapshot.city}</dd></div><div><dt>Начато</dt><dd>{date(session.created_at)}</dd></div><div><dt>Завершено</dt><dd>{date(session.completed_at)}</dd></div><div><dt>Набор / алгоритм</dt><dd>{task_set_version} / {result.algorithm_version}</dd></div></dl><p className="micro">Данные ребёнка на момент начала прохождения.</p><h3>Правильных ответов: {result.scores.correct} из {result.scores.total}</h3><Scores result={result}/><p className="micro">Результат ознакомительный, не является диагнозом и не заменяет консультацию специалиста.</p></section><h2 className="report-section-title">Задания и ответы</h2><div className="stack">{answers.map((answer,index)=><details className="card report-answer" key={answer.task_id}><summary>Задание {index+1} · {answer.category==='attention'?'Внимание':'Память'}<span className={answer.is_correct?'answer-correct':'answer-incorrect'}>{answer.is_correct?'Верно':'Неверно'}</span></summary><p>{answer.prompt}</p><div className="report-stimulus" aria-label="Материал задания">{answer.stimulus}</div><p><strong>Ответ ребёнка:</strong> {answer.selected??'Нет ответа'}</p><p><strong>Правильный ответ:</strong> {answer.correct}</p><p className="micro">Сохранено: {date(answer.answered_at)}</p></details>)}</div></>;
+}
+export function AdminClubTransitions(){
+  const[offset,setOffset]=useState(0),load=useReport(()=>api.admin.transitions(offset),String(offset));
+  return <><Link className="back" to="/admin">← Статистика</Link><h2>Переходы к кружкам из рекомендаций</h2><p>Считаются открытия через кнопку «Связаться с кружком» в рекомендациях после прохождения. Это не звонки и не записи; обычный каталог не учитывается.</p>{!load.value?<Pending {...load}/>:<><p><strong>Всего переходов: {load.value.total_openings}</strong> · Кружков: {load.value.total}</p><div className="stack">{load.value.items.map(club=><article className="card" key={club.club_id}><div className="report-title"><h3>{club.name}</h3><strong className="transition-count">{club.count}</strong></div><p>{club.city}{club.archived?' · В архиве':''}</p><p className="micro">Последний переход: {date(club.last_opened_at)}</p></article>)}</div>{!load.value.items.length&&<section className="card"><p>Переходов пока нет. Они появятся, когда родитель откроет кружок из рекомендаций.</p></section>}<Pagination {...load.value} change={setOffset}/></>}</>;
+}

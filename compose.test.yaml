@@ -1,0 +1,15 @@
+# Use only with: docker compose -p liga-mvp-tests -f compose.yaml -f compose.test.yaml ...
+services:
+  mobile-app:
+    ports: !override
+      - "127.0.0.1:8081:80"
+  api-be:
+    environment:
+      DB_NAME: liga_test
+      PUBLIC_ORIGIN: http://127.0.0.1:8081
+      COOKIE_SECURE: "false"
+  postgres:
+    environment:
+      POSTGRES_DB: liga_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liga -d liga_test"]
