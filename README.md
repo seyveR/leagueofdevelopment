@@ -64,3 +64,5 @@ docker compose exec api-be python -m app.cli issue-verification-link --email par
 
 Подробнее: [покрытие требований](docs/mvp2-coverage.md), [архитектура](docs/architecture.md), [родитель](docs/parent-guide.md), [организация](docs/partner-guide.md), [администратор](docs/admin-guide.md), [проверки](docs/verification.md), [копирование и восстановление](docs/backup.md).
 
+Полное руководство по всем ролям, сценариям и переходам заявок: [сценарии использования](docs/user-scenarios.md).
+
