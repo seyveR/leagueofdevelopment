@@ -1,0 +1,4 @@
+# Uses an existing local runtime; performs no package/model downloads.
+FROM liga-mobile:0.2.1
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY dist/ /usr/share/nginx/html/

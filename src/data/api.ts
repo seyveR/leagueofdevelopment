@@ -7,7 +7,7 @@ let currentUserId:string|null=null;
 export function onSessionEnded(listener:(reason:SessionEndReason)=>void){sessionListeners.add(listener);return()=>{sessionListeners.delete(listener);};}
 function endSession(reason:SessionEndReason){sessionGeneration++;currentUserId=null;csrf='';for(const listener of sessionListeners)listener(reason);}
 export class ApiError extends Error { constructor(public status:number,message:string){super(message);} }
-async function request<T>(path:string,method='GET',body?:unknown):Promise<T>{
+export async function request<T>(path:string,method='GET',body?:unknown):Promise<T>{
   const generation=sessionGeneration;
   let response:Response;
   try {response=await fetch(`/api${path}`,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(method==='GET'?{}:{'X-CSRF-Token':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)})});}

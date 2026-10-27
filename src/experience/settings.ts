@@ -1,0 +1,4 @@
+export interface Settings {speech:boolean;autoplay:boolean;voice:'ru-sofia'|'ru-lev';volume:number;rate:number;character:boolean;reduced_motion:boolean;text_size:'normal'|'large';notify_bookings:boolean;notify_retest:boolean;notify_subscription:boolean;instruction_format:'text'|'audio'}
+export const defaults:Settings={speech:false,autoplay:false,voice:'ru-sofia',volume:.8,rate:1,character:true,reduced_motion:false,text_size:'normal',notify_bookings:true,notify_retest:true,notify_subscription:true,instruction_format:'text'};
+export interface SettingsResponse {settings:Settings;schema_version:number;overridden:boolean;notification_channels:{in_app:boolean;email:boolean;sms:boolean;push:boolean}}
+export const voices=[{id:'ru-sofia',name:'София · женский голос',character:'sofia'},{id:'ru-lev',name:'Лев · мужской голос',character:'lev'}] as const;

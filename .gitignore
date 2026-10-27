@@ -9,3 +9,7 @@ playwright-report/
 __pycache__/
 .pytest_cache/
 .venv/
+models/
+audio-cache/
+backups/
+.tts-venv/

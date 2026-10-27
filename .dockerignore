@@ -10,3 +10,6 @@ playwright-report
 backend
 docs
 *.log
+
+!dist/
+!dist/**

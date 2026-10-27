@@ -1,0 +1,7 @@
+services:
+  mobile-app:
+    build:
+      dockerfile: Dockerfile.offline
+  api-be:
+    build:
+      dockerfile: Dockerfile.offline

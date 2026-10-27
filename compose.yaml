@@ -1,7 +1,7 @@
 name: liga-mvp
 services:
   mobile-app:
-    image: liga-mobile:0.2.1
+    image: liga-mobile:0.3.0
     build: .
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:80"
@@ -10,7 +10,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   api-be:
-    image: liga-api:0.2.1
+    image: liga-api:0.3.0
     build: ./backend
     environment:
       DB_HOST: postgres

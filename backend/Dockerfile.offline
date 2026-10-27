@@ -1,0 +1,6 @@
+# Uses an existing local runtime; performs no package/model downloads.
+FROM liga-api:0.2.1
+USER root
+RUN mkdir -p /data/audio /data/files /data/models && chown -R liga:liga /data
+COPY . /srv/
+USER liga

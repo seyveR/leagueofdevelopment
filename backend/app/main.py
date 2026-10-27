@@ -15,7 +15,7 @@ from .admin_reports import router as admin_reports_router
 
 CONSENT_VERSION='local-2026-10-22-v1'
 CONSENT_TEXT='Я как родитель или законный представитель разрешаю сохранять введённые данные ребёнка, ответы и результаты в локальной базе приложения для проверки его функций. Данные доступны моей учётной записи и не передаются кружкам. Текст предназначен для локального прототипа и требует юридической проверки перед реальным использованием.'
-app=FastAPI(title='Лига развития API',version='0.2.1',docs_url='/api/docs',openapi_url='/api/openapi.json',redoc_url=None,dependencies=[Depends(csrf_guard)])
+app=FastAPI(title='Лига развития API',version='0.3.0',docs_url='/api/docs',openapi_url='/api/openapi.json',redoc_url=None,dependencies=[Depends(csrf_guard)])
 
 @app.exception_handler(RequestValidationError)
 def validation_failure(request,exc):
@@ -261,3 +261,8 @@ def all_feedback(user=Depends(admin),db=Depends(get_db)):return db.scalars(selec
 
 app.include_router(admin_reports_router)
 
+
+from .preferences import router as preferences_router
+from .audio import router as audio_router
+app.include_router(preferences_router)
+app.include_router(audio_router)
