@@ -47,7 +47,8 @@ def completion(id:str,db=Depends(get_db)):
     task_set=db.get(TaskSet,session.task_set_id)
     answers={a.task_id:a for a in db.scalars(select(Answer).where(Answer.session_id==id)).all()}
     details=[]
-    for task in task_set.tasks:
+    from .adaptive import tasks_for
+    for task in tasks_for(db,session):
         answer=answers.get(task['id']);labels={o['id']:o['label'] for o in task['options']}
         details.append({'task_id':task['id'],'category':task['category'],'prompt':task['prompt'],'stimulus':task['stimulus'],
                         'selected':labels.get(answer.option_id) if answer else None,'correct':labels[task['correct']],

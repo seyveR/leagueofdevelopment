@@ -59,6 +59,8 @@ class TestSession(Identity, Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     phase: Mapped[str] = mapped_column(String(16), default='view')
     status: Mapped[str] = mapped_column(String(16), default='in_progress')
+    task_trace: Mapped[list] = mapped_column(JSON, default=list)
+    conditions: Mapped[dict] = mapped_column(JSON, default=dict)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__=(CheckConstraint('position BETWEEN 0 AND 12'),CheckConstraint("status IN ('in_progress','completed')"))
 
@@ -67,6 +69,7 @@ class Answer(Identity, Base):
     session_id: Mapped[str] = mapped_column(ForeignKey('test_sessions.id'), index=True)
     task_id: Mapped[str] = mapped_column(String(40))
     option_id: Mapped[str] = mapped_column(String(40))
+    gesture_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     __table_args__=(UniqueConstraint('session_id','task_id'),)
 
 class Result(Identity, Base):

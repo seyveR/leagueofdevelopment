@@ -115,7 +115,7 @@ def test_recommendations_archives_rules_events_feedback(client):
 
 def test_seed_repeatable_and_admin_create_edit(client):
     with SessionLocal() as db:
-        seed(db);seed(db);assert db.scalar(select(func.count()).select_from(TaskSet))==1;assert db.scalar(select(func.count()).select_from(Club))==6
+        seed(db);seed(db);assert db.scalar(select(func.count()).select_from(TaskSet))==5;assert db.scalar(select(func.count()).select_from(Club))==6
     c=admin_client();body={'name':'Новый кружок','description':'Описание','min_age':7,'max_age':9,'city':'Архангельск','address':'Адрес','phone':'+7 (000) 000-00-00','price':'1000 ₽','photo_url':''}
     r=c.post('/api/admin/clubs',json=body);assert r.status_code==200,r.text;club=r.json();assert c.put('/api/admin/clubs/'+club['id'],json={**body,'name':'Изменённый кружок'}).status_code==200
     assert c.put('/api/admin/clubs/'+club['id']+'/rule',json={'metric':'memory','minimum':90,'maximum':20,'explanation':'X'}).status_code==422

@@ -35,10 +35,12 @@ class ChildInput(Input):
         return list(dict.fromkeys(x.strip() for x in v))
 
 class StartInput(Input):
+    scenario: Literal['legacy','age-v2'] = 'legacy'
     child_id: str
     request_id: str = Field(pattern=r'^[a-f0-9-]{36}$')
 
 class AnswerInput(Input):
+    gesture_ms: int | None = Field(default=None,ge=0,le=120000)
     task_id: str
     option_id: str
 

@@ -10,7 +10,7 @@ from .models import User,AuthSession,Child,TaskSet,TestSession,Answer,Result,Clu
 from .schemas import Credentials,PasswordChange,ChildInput,StartInput,AnswerInput,PhaseInput,FeedbackInput,OpenInput,ClubInput,RuleInput
 from .outputs import AuthOut,ChildOut,SessionOut,StateOut,DetailOut,ResultOut,ClubOut,RuleOut,RecommendationOut,FeedbackOut
 from .security import current_user,parent,admin,csrf_guard,login_session,hasher,verify,throttle,cookie,digest,COOKIE,CSRF,dummy_hash,reset_login_failures,reject_login
-from . import assessment
+from . import assessment,adaptive
 from .admin_reports import router as admin_reports_router
 
 CONSENT_VERSION='local-2026-10-22-v1'
@@ -133,25 +133,36 @@ def start(body:StartInput,user=Depends(parent),db=Depends(get_db)):
     if existing:
         if existing.child_id!=child.id: raise HTTPException(409,'Повторный идентификатор запроса')
         return existing
-    if not 7<=child.age<=9: raise HTTPException(422,'Набор доступен детям 7–9 лет')
-    taskset=db.scalar(select(TaskSet).where(TaskSet.active==True).order_by(TaskSet.created_at.desc()))
+    from .age_tasks import group_for,task_variant
+    from .preferences import effective
+    if body.scenario=='age-v2':
+        group=group_for(child.age)
+        if not group:raise HTTPException(422,'Наборы доступны для возраста 3–17 лет')
+        taskset=db.get(TaskSet,group['id'])
+    else:
+        if not 7<=child.age<=9:raise HTTPException(422,'Набор доступен детям 7–9 лет')
+        taskset=db.scalar(select(TaskSet).where(TaskSet.active==True,TaskSet.code=='attention-memory-7-9'))
     if not taskset: raise HTTPException(503,'Набор заданий недоступен')
     s=TestSession(id=body.request_id,child_id=child.id,task_set_id=taskset.id,child_snapshot={'name':child.name,'age':child.age,'city':child.city,'gender':child.gender,'interests':child.interests},algorithm_version=assessment.VERSION)
+    if body.scenario=='age-v2':
+        s.algorithm_version='familiarisation-2.0.0'
+        s.task_trace=[{'task':task_variant(taskset.tasks[0],1),'difficulty':1,'rules_version':adaptive.RULES_VERSION}]
+        s.conditions=effective(db,user.id,child.id)
     db.add(s);db.commit();return s
 
 @app.get('/api/sessions/{id}',response_model=DetailOut)
 def session_detail(id:str,user=Depends(parent),db=Depends(get_db)):
-    s=owned_session(db,id,user);tasks=db.get(TaskSet,s.task_set_id).tasks
+    s=owned_session(db,id,user);tasks=adaptive.tasks_for(db,s)
     task=None
     if s.position<len(tasks) and s.status=='in_progress':
         t=tasks[s.position]; memory=t['category']=='memory'
-        task={'id':t['id'],'category':t['category'],'prompt':t['prompt'],'stimulus':t['stimulus'] if not memory or s.phase=='view' else None,'options':[] if memory and s.phase=='view' else t['options']}
+        task={'id':t['id'],'category':t['category'],'prompt':t['prompt'],'stimulus':t['stimulus'] if not memory or s.phase=='view' else None,'options':[] if memory and s.phase=='view' else t['options'],'mechanic':t.get('mechanic','choice'),'difficulty':t.get('difficulty',1),'left':t.get('left',[]),'right':t.get('right',[])}
     answers=db.scalars(select(Answer).where(Answer.session_id==id)).all()
-    return {'session':s,'task':task,'answers':[{'task_id':a.task_id,'option_id':a.option_id} for a in answers],'total':len(tasks)}
+    return {'session':s,'task':task,'answers':[{'task_id':a.task_id,'option_id':a.option_id} for a in answers],'total':12 if s.task_trace else len(tasks)}
 
 @app.post('/api/sessions/{id}/hide',response_model=SessionOut)
 def hide(id:str,body:PhaseInput,user=Depends(parent),db=Depends(get_db)):
-    s=owned_session(db,id,user,True);tasks=db.get(TaskSet,s.task_set_id).tasks
+    s=owned_session(db,id,user,True);tasks=adaptive.tasks_for(db,s)
     if s.status!='in_progress' or s.position>=len(tasks): raise HTTPException(409,'Шаг уже завершён')
     t=tasks[s.position]
     if t['id']!=body.task_id or t['category']!='memory': raise HTTPException(422,'Этап запоминания недоступен')
@@ -159,7 +170,7 @@ def hide(id:str,body:PhaseInput,user=Depends(parent),db=Depends(get_db)):
 
 @app.post('/api/sessions/{id}/answers',response_model=SessionOut)
 def save_answer(id:str,body:AnswerInput,user=Depends(parent),db=Depends(get_db)):
-    s=owned_session(db,id,user,True);tasks=db.get(TaskSet,s.task_set_id).tasks
+    s=owned_session(db,id,user,True);tasks=adaptive.tasks_for(db,s)
     previous=db.scalar(select(Answer).where(Answer.session_id==id,Answer.task_id==body.task_id))
     if previous:
         if previous.option_id==body.option_id: return s
@@ -168,17 +179,18 @@ def save_answer(id:str,body:AnswerInput,user=Depends(parent),db=Depends(get_db))
     t=tasks[s.position]
     if t['id']!=body.task_id or body.option_id not in [o['id'] for o in t['options']]: raise HTTPException(422,'Недопустимый ответ или порядок заданий')
     if t['category']=='memory' and s.phase!='answer': raise HTTPException(409,'Сначала скройте материал для запоминания')
-    db.add(Answer(session_id=id,task_id=t['id'],option_id=body.option_id));s.position+=1;s.phase='view';db.commit();return s
+    db.add(Answer(session_id=id,task_id=t['id'],option_id=body.option_id,gesture_ms=body.gesture_ms));s.position+=1;s.phase='view'
+    adaptive.next_task(db,s,body.option_id==t['correct']);db.commit();return s
 
 @app.post('/api/sessions/{id}/complete',response_model=ResultOut)
 def complete(id:str,user=Depends(parent),db=Depends(get_db)):
     s=owned_session(db,id,user,True)
     previous=db.scalar(select(Result).where(Result.session_id==id))
     if previous:return previous
-    tasks=db.get(TaskSet,s.task_set_id).tasks;answers={a.task_id:a.option_id for a in db.scalars(select(Answer).where(Answer.session_id==id)).all()}
+    tasks=adaptive.tasks_for(db,s);answers={a.task_id:a.option_id for a in db.scalars(select(Answer).where(Answer.session_id==id)).all()}
     if s.position!=len(tasks) or set(answers)!={t['id'] for t in tasks}: raise HTTPException(409,'Ответьте на все обязательные задания')
-    if s.algorithm_version!=assessment.VERSION: raise HTTPException(409,'Нужна сохранённая версия алгоритма')
-    r=Result(session_id=id,algorithm_version=s.algorithm_version,scores=assessment.evaluate(tasks,answers));db.add(r)
+    if s.algorithm_version not in (assessment.VERSION,'familiarisation-2.0.0'): raise HTTPException(409,'Нужна сохранённая версия алгоритма')
+    r=Result(session_id=id,algorithm_version=s.algorithm_version,scores=adaptive.evaluate(tasks,answers,s.conditions) if s.task_trace else assessment.evaluate(tasks,answers));db.add(r)
     s.status='completed';s.completed_at=now()
     db.add(Event(user_id=user.id,session_id=id,kind='completed',request_id=f'completed:{id}'))
     db.commit();return r

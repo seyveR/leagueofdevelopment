@@ -1,0 +1,9 @@
+import {useState} from 'react';
+import type {Task} from '../domain/api-models';
+export function TaskOptions({task,choice,select,disabled}:{task:Task;choice:string;select:(id:string)=>void;disabled:boolean}){
+  const[pairs,setPairs]=useState<string[]>(task.left?.map(()=>'')??[]);
+  if(task.mechanic==='match')return <fieldset disabled={disabled} className="matching"><legend>Сопоставьте пары</legend>{task.left!.map((left,index)=><label key={index}>{left}<select aria-label={`Пара ${index+1}`} value={pairs[index]} onChange={e=>{const next=pairs.map((v,i)=>i===index?e.target.value:v);setPairs(next);select(task.options.find(o=>o.mapping?.every((v,i)=>next[i]===String(v)))?.id??'');}}><option value="">Выберите</option>{task.right!.map((right,i)=><option key={i} value={i}>{right}</option>)}</select></label>)}</fieldset>;
+  if(task.mechanic==='search'||task.mechanic==='target')return <fieldset disabled={disabled}><legend>{task.mechanic==='target'?'Нажмите на нужную точку':'Найдите нужный объект'}</legend><div className={`object-grid ${task.mechanic==='target'?'target-grid':''}`}>{task.options.map(o=><button type="button" className={`object-choice ${choice===o.id?'chosen':''}`} aria-label={`Выбрать ${o.label}`} aria-pressed={choice===o.id} key={o.id} onClick={()=>select(o.id)}>{o.label}</button>)}</div></fieldset>;
+  return <fieldset className="answers" disabled={disabled}><legend>Выберите один ответ</legend>{task.options.map(o=><label className={`answer ${choice===o.id?'checked':''}`} key={o.id}><input type="radio" name="answer" required checked={choice===o.id} onChange={()=>select(o.id)}/><span>{o.label}</span></label>)}</fieldset>;
+}
+export const categoryLabels:Record<string,string>={attention:'Внимание',memory:'Память',logic:'Логические задачи',spatial:'Пространственные задачи',coordination:'Точность действий',pace:'Планомерное выполнение'};

@@ -16,6 +16,7 @@ class ChildOut(Output):
 
 class SessionOut(Output):
     id:str;child_id:str;task_set_id:str;child_snapshot:dict;algorithm_version:str;position:int;phase:str;status:str;created_at:datetime;completed_at:datetime | None
+    conditions:dict={}
 
 class ResultOut(Output):
     id:str;session_id:str;algorithm_version:str;scores:dict;created_at:datetime
@@ -30,7 +31,8 @@ class StateOut(Output):
     children:list[ChildOut];sessions:list[SessionOut];results:list[ResultOut]
 
 class TaskOut(Output):
-    id:str;category:str;prompt:str;stimulus:str | None;options:list[dict[str,str]]
+    id:str;category:str;prompt:str;stimulus:str | None;options:list[dict[str,Any]]
+    mechanic:str='choice';difficulty:int=1;left:list[str]=[];right:list[str]=[]
 
 class DetailOut(Output):
     session:SessionOut;task:TaskOut | None;answers:list[dict[str,str]];total:int

@@ -13,6 +13,9 @@ def seed(db):
         if db.get(Club,id):continue
         db.add(Club(id=id,name=name,description=description,min_age=7,max_age=10,city='Архангельск',address=f'Учебный адрес, {i+1}',phone=f'+7 (000) 000-00-0{i+1}',price=f'{1800+i*200} ₽ / месяц',photo_url='',archived=False));db.flush()
         db.add(Rule(club_id=id,metric=metric,minimum=0,maximum=67 if metric!='any' else 100,priority=10 if metric!='any' else 0,explanation=explanation))
+    from .age_tasks import SCENARIOS
+    for scenario in SCENARIOS.values():
+        if not db.get(TaskSet,scenario['id']):db.add(TaskSet(id=scenario['id'],code=scenario['code'],version=scenario['version'],tasks=scenario['tasks'],active=True))
     db.commit()
 
 if __name__=='__main__':
