@@ -1,0 +1,5 @@
+# Optional generation environment only. The API does not install this file.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.6.0+cpu
+numpy==2.3.5
+

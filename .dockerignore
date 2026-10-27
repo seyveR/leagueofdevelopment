@@ -10,6 +10,10 @@ playwright-report
 backend
 docs
 *.log
+.tts-venv
+models
+audio-cache
+backups
 
 !dist/
 !dist/**
