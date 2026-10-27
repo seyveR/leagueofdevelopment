@@ -1,0 +1,6 @@
+SELECT 'users',count(*),md5(coalesce(string_agg(md5(row_to_json(q)::text),'' ORDER BY id),'')) FROM (SELECT id,email,password_hash,role,created_at FROM users) q
+UNION ALL SELECT 'children',count(*),md5(coalesce(string_agg(md5(row_to_json(q)::text),'' ORDER BY id),'')) FROM (SELECT id,owner_id,name,age,gender,interests,city,consent_at,consent_version,created_at FROM children) q
+UNION ALL SELECT 'sessions',count(*),md5(coalesce(string_agg(md5(row_to_json(q)::text),'' ORDER BY id),'')) FROM (SELECT id,child_id,task_set_id,child_snapshot,algorithm_version,position,phase,status,created_at,completed_at FROM test_sessions) q
+UNION ALL SELECT 'answers',count(*),md5(coalesce(string_agg(md5(row_to_json(q)::text),'' ORDER BY id),'')) FROM (SELECT id,session_id,task_id,option_id,created_at FROM answers) q
+UNION ALL SELECT 'results',count(*),md5(coalesce(string_agg(md5(row_to_json(q)::text),'' ORDER BY id),'')) FROM (SELECT id,session_id,algorithm_version,scores,created_at FROM results) q
+UNION ALL SELECT 'clubs',count(*),md5(coalesce(string_agg(md5(row_to_json(q)::text),'' ORDER BY id),'')) FROM (SELECT id,name,description,min_age,max_age,city,address,phone,price,photo_url,archived,created_at FROM clubs) q;

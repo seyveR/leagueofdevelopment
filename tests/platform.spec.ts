@@ -47,6 +47,13 @@ test('PWA: service worker, манифест и отсутствие кэша п�
   await context.setOffline(true);await page.goto('/home');await expect(page.getByRole('heading',{name:'Нет соединения с приложением'})).toBeVisible();await context.setOffline(false);await page.goto('/login');await expect(page.getByRole('heading',{name:'Вход',exact:true})).toBeVisible();
 });
 
+test('каталог: сравнение трёх, избранное и бюджет',async({page})=>{
+  await register(page);await child(page,8);await page.goto('/programs');await expect(page.locator('.market-card').first()).toBeVisible();
+  const compare=page.getByRole('button',{name:'Сравнить',exact:true});for(let i=0;i<3;i++)await compare.first().click();await expect(page.getByRole('heading',{name:'Сравнение: 3 из 3'})).toBeVisible();await expect(compare.first()).toBeDisabled();
+  await page.getByRole('button',{name:'В избранное',exact:true}).first().click();await expect(page.getByRole('button',{name:'Убрать из избранного',exact:true})).toBeVisible();await page.getByRole('checkbox',{name:'Только избранное',exact:true}).check();await expect(page.locator('.market-card')).toHaveCount(1);await page.reload();await page.getByRole('checkbox',{name:'Только избранное',exact:true}).check();await expect(page.locator('.market-card')).toHaveCount(1);
+  await page.getByLabel('Цена до, ₽',{exact:true}).fill('0');await page.getByRole('button',{name:'Показать',exact:true}).click();await expect(page.getByRole('heading',{name:'Кружки не найдены'})).toBeVisible();
+});
+
 test('аудиоплеер: очередь, смена голоса, отключение и навигация (тестовая тишина)',async({page})=>{
   // This silent fixture tests player lifecycle, NOT the quality of any neural voice.
   const wav=Buffer.alloc(44+24000*2*15);wav.write('RIFF',0);wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(24000,24);wav.writeUInt32LE(48000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(wav.length-44,40);
