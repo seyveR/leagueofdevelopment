@@ -1,7 +1,7 @@
 import pytest
 from uuid import uuid4
 from app.db import SessionLocal
-from app.models import TestSession as TestRun,TaskSet
+from app.models import TestSession as SessionModel,TaskSet
 from .conftest import register
 from .test_api import create_child
 
@@ -19,7 +19,7 @@ def test_all_age_scenarios_resume_adaptation_and_protected_keys(client,age):
             assert task['stimulus'] and task['options']==[]
             assert client.post(f'/api/sessions/{id}/hide',json={'task_id':task['id']}).status_code==200
             assert client.get('/api/sessions/'+id).json()['task']['stimulus'] is None
-        with SessionLocal() as db:correct=db.get(TestRun,id).task_trace[n]['task']['correct']
+        with SessionLocal() as db:correct=db.get(SessionModel,id).task_trace[n]['task']['correct']
         result=client.post(f'/api/sessions/{id}/answers',json={'task_id':task['id'],'option_id':correct})
         assert result.status_code==200,result.text
     assert len(categories)==6 and {'search','memory','sequence','match','target'}.issubset(mechanics)
@@ -28,6 +28,6 @@ def test_all_age_scenarios_resume_adaptation_and_protected_keys(client,age):
     assert result['scores']['correct']==12 and result['algorithm_version']=='familiarisation-2.0.0'
     for category in categories:assert result['scores'][category]['total']==2
     with SessionLocal() as db:
-        stored=db.get(TestRun,id)
+        stored=db.get(SessionModel,id)
         assert len(stored.task_trace)==12 and stored.conditions['voice']=='ru-sofia'
         assert all(t['rules_version']=='adaptive-1.0.0' for t in stored.task_trace)

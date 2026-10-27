@@ -37,6 +37,9 @@ def current_user(request: Request, db=Depends(get_db)):
     if not session or session.expires_at<=now(): raise HTTPException(401,'Войдите в приложение')
     user=db.get(User,session.user_id)
     if not user: raise HTTPException(401,'Войдите в приложение')
+    from .platform_models import AccountState
+    state=db.get(AccountState,user.id)
+    if state and state.blocked:raise HTTPException(401,'Учётная запись заблокирована')
     return user
 
 def parent(user=Depends(current_user)):

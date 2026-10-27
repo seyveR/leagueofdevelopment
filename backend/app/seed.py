@@ -16,6 +16,12 @@ def seed(db):
     from .age_tasks import SCENARIOS
     for scenario in SCENARIOS.values():
         if not db.get(TaskSet,scenario['id']):db.add(TaskSet(id=scenario['id'],code=scenario['code'],version=scenario['version'],tasks=scenario['tasks'],active=True))
+    import re
+    from .platform_models import Plan,ProgramInfo
+    if not db.get(Plan,'free'):db.add(Plan(id='free',name='Бесплатный',price_rub=0,child_limit=1,duration_days=30,features=[]))
+    if not db.get(Plan,'premium'):db.add(Plan(id='premium',name='Расширенный · тестовый',price_rub=299,child_limit=10,duration_days=30,features=['history','consultations']))
+    for club in db.scalars(select(Club)):
+        if not db.get(ProgramInfo,club.id):db.add(ProgramInfo(club_id=club.id,format='offline',price_rub=int(''.join(re.search(r'\d[\d\s]*',club.price).group().split())) if re.search(r'\d[\d\s]*',club.price) else 0,tags=[club.name],schedule='Уточните время у организации',status='approved'))
     db.commit()
 
 if __name__=='__main__':

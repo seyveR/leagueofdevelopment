@@ -1,4 +1,4 @@
-export interface User { id: string; email: string; role: 'parent' | 'admin' }
+export interface User { id: string; email: string; role: 'parent' | 'partner' | 'admin' }
 export interface Child { id:string;name:string;age:number;gender:string;interests:string[];city:string;consent_at:string;consent_version:string }
 export interface ChildInput { name:string;age:number;gender:string;interests:string[];city:string;consent:boolean;consent_version?:string }
 export interface Session { id:string;child_id:string;task_set_id:string;child_snapshot:Pick<Child,'name'|'age'|'city'>;position:number;phase:'view'|'answer';status:'in_progress'|'completed';created_at:string;completed_at:string|null;algorithm_version:string }

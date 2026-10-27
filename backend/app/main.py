@@ -13,8 +13,8 @@ from .security import current_user,parent,admin,csrf_guard,login_session,hasher,
 from . import assessment,adaptive
 from .admin_reports import router as admin_reports_router
 
-CONSENT_VERSION='local-2026-10-22-v1'
-CONSENT_TEXT='Я как родитель или законный представитель разрешаю сохранять введённые данные ребёнка, ответы и результаты в локальной базе приложения для проверки его функций. Данные доступны моей учётной записи и не передаются кружкам. Текст предназначен для локального прототипа и требует юридической проверки перед реальным использованием.'
+CONSENT_VERSION='local-2026-10-27-v2'
+CONSENT_TEXT='Я как родитель или законный представитель разрешаю сохранять введённые данные ребёнка, ответы и результаты в локальной базе приложения для проверки его функций. Данные доступны моей учётной записи. Имя и возраст ребёнка и контакт могут передаваться выбранной организации только по отдельному согласию в заявке. Текст предназначен для локального прототипа и требует юридической проверки перед реальным использованием.'
 app=FastAPI(title='Лига развития API',version='0.3.0',docs_url='/api/docs',openapi_url='/api/openapi.json',redoc_url=None,dependencies=[Depends(csrf_guard)])
 
 @app.exception_handler(RequestValidationError)
@@ -73,6 +73,9 @@ def login(body:Credentials,request:Request,response:Response,db=Depends(get_db))
     user=db.scalar(select(User).where(User.email==email).with_for_update())
     valid=verify(user.password_hash if user else dummy_hash,body.password)
     if not user or not valid:reject_login(db,email)
+    from .platform_models import AccountState
+    state=db.get(AccountState,user.id)
+    if state and state.blocked:raise HTTPException(403,'Учётная запись заблокирована администратором')
     reset_login_failures(db,email)
     return login_session(db,user,response)
 
@@ -114,18 +117,24 @@ def child_create(body:ChildInput,user=Depends(parent),db=Depends(get_db)):
         if old:
             if old.owner_id!=user.id:raise HTTPException(409,'Идентификатор запроса уже использован')
             return old
+    from .platform_services import allow_new_child
+    allow_new_child(db,user)
     child=Child(**({'id':body.request_id} if body.request_id else {}),owner_id=user.id,**body.model_dump(exclude={'consent','consent_version','request_id'}),consent_at=now(),consent_version=CONSENT_VERSION)
     db.add(child);db.commit();return child
 
 @app.put('/api/children/{id}',response_model=ChildOut)
 def child_update(id:str,body:ChildInput,user=Depends(parent),db=Depends(get_db)):
     child=owned_child(db,id,user,True)
+    from .platform_services import consent_required
+    consent_required(db,user)
     for k,v in body.model_dump(exclude={'consent','consent_version','request_id'}).items(): setattr(child,k,v)
     db.commit();return child
 
 @app.post('/api/sessions',response_model=SessionOut)
 def start(body:StartInput,user=Depends(parent),db=Depends(get_db)):
     child=owned_child(db,body.child_id,user,True)
+    from .platform_services import consent_required
+    consent_required(db,user)
     # Row-lock on child serializes starts, including concurrent retries.
     old=db.scalar(select(TestSession).where(TestSession.child_id==child.id,TestSession.status=='in_progress'))
     if old: return old
@@ -142,7 +151,7 @@ def start(body:StartInput,user=Depends(parent),db=Depends(get_db)):
     else:
         if not 7<=child.age<=9:raise HTTPException(422,'Набор доступен детям 7–9 лет')
         taskset=db.scalar(select(TaskSet).where(TaskSet.active==True,TaskSet.code=='attention-memory-7-9'))
-    if not taskset: raise HTTPException(503,'Набор заданий недоступен')
+    if not taskset or not taskset.active: raise HTTPException(409,'Набор заданий временно недоступен')
     s=TestSession(id=body.request_id,child_id=child.id,task_set_id=taskset.id,child_snapshot={'name':child.name,'age':child.age,'city':child.city,'gender':child.gender,'interests':child.interests},algorithm_version=assessment.VERSION)
     if body.scenario=='age-v2':
         s.algorithm_version='familiarisation-2.0.0'
@@ -206,6 +215,12 @@ def recommendations(db,s):
     if not r:raise HTTPException(409,'Сначала завершите тест')
     age=s.child_snapshot['age'];city=s.child_snapshot['city'].strip().casefold()
     rows=db.execute(select(Club,Rule).join(Rule).where(Club.archived==False,Club.min_age<=age,Club.max_age>=age).order_by(Rule.priority.desc(),Club.id)).all()
+    from .marketplace import public_program
+    visible=[]
+    for club,rule in rows:
+        try:public_program(db,club.id);visible.append((club,rule))
+        except HTTPException:continue
+    rows=visible
     return [{'club':club,'explanation':rule.explanation,'rules_version':'rules-1.0.0'} for club,rule in rows if club.city.strip().casefold()==city and (rule.metric=='any' or rule.minimum<=r.scores[rule.metric]['percent']<=rule.maximum)][:5]
 
 @app.get('/api/sessions/{id}/recommendations',response_model=list[RecommendationOut])
@@ -216,11 +231,18 @@ def catalog(age:int | None=None,city:str | None=None,user=Depends(parent),db=Dep
     q=select(Club).where(Club.archived==False)
     if age is not None:q=q.where(Club.min_age<=age,Club.max_age>=age)
     if city:q=q.where(func.lower(Club.city)==city.strip().lower())
-    return db.scalars(q.order_by(Club.name)).all()
+    from .marketplace import public_program
+    visible=[]
+    for club in db.scalars(q.order_by(Club.name)):
+        try:public_program(db,club.id);visible.append(club)
+        except HTTPException:continue
+    return visible
 
 @app.get('/api/clubs/{id}',response_model=ClubOut)
 def club_get(id:str,user=Depends(parent),db=Depends(get_db)):
     club=db.get(Club,id)
+    from .marketplace import public_program
+    public_program(db,id)
     if not club or club.archived:raise HTTPException(404,'Кружок недоступен')
     return club
 
@@ -231,7 +253,9 @@ def club_open(id:str,body:OpenInput,user=Depends(parent),db=Depends(get_db)):
     if old:
         if old.session_id!=id or old.club_id!=body.club_id:raise HTTPException(409,'Идентификатор события уже использован')
         return {'ok':True}
-    if body.club_id not in [r['club'].id for r in recommendations(db,s)]: raise HTTPException(422,'Кружок отсутствует в рекомендациях')
+    from .recommendation_v2 import recommendations as weighted_recommendations
+    allowed=recommendations(db,s)+weighted_recommendations(id,format='',max_price=None,schedule='',user=user,db=db)
+    if body.club_id not in [r['club'].id for r in allowed]: raise HTTPException(422,'Кружок отсутствует в рекомендациях')
     db.add(Event(user_id=user.id,session_id=id,club_id=body.club_id,kind='club_open',request_id=body.request_id));db.commit();return {'ok':True}
 
 @app.post('/api/feedback',response_model=FeedbackOut)
@@ -250,12 +274,25 @@ def add_club(body:ClubInput,user=Depends(admin),db=Depends(get_db)):
     if body.request_id:
         old=db.get(Club,body.request_id)
         if old:return old
-    club=Club(**({'id':body.request_id} if body.request_id else {}),**body.model_dump(exclude={'request_id'}));db.add(club);db.flush();db.add(Rule(club_id=club.id,explanation='Занятия по программе кружка.',metric='any'));db.commit();return club
+    club=Club(**({'id':body.request_id} if body.request_id else {}),**body.model_dump(exclude={'request_id'}));db.add(club);db.flush()
+    db.add(Rule(club_id=club.id,explanation='Занятия по программе кружка.',metric='any'))
+    from .platform_models import ProgramInfo
+    import re
+    match=re.search(r'\d[\d\s]*',club.price)
+    db.add(ProgramInfo(club_id=club.id,price_rub=int(''.join(match.group().split())) if match else 0,status='archived' if club.archived else 'approved',format='offline',tags=[],schedule='Уточняется'))
+    db.commit();return club
 @app.put('/api/admin/clubs/{id}',response_model=ClubOut)
 def edit_club(id:str,body:ClubInput,user=Depends(admin),db=Depends(get_db)):
     club=db.get(Club,id)
     if not club:raise HTTPException(404,'Кружок не найден')
     for k,v in body.model_dump(exclude={'request_id'}).items():setattr(club,k,v)
+    from .platform_models import ProgramInfo
+    info=db.get(ProgramInfo,id)
+    if info and not info.organization_id:
+        import re
+        match=re.search(r'\d[\d\s]*',club.price)
+        info.price_rub=int(''.join(match.group().split())) if match else 0
+        info.status='archived' if club.archived else 'approved'
     db.commit();return club
 @app.get('/api/admin/rules',response_model=list[RuleOut])
 def rules(user=Depends(admin),db=Depends(get_db)):return db.scalars(select(Rule)).all()
@@ -278,3 +315,15 @@ from .preferences import router as preferences_router
 from .audio import router as audio_router
 app.include_router(preferences_router)
 app.include_router(audio_router)
+
+from .marketplace import router as marketplace_router
+from .billing import router as billing_router
+from .account import router as account_router
+from .storage import router as storage_router
+app.include_router(marketplace_router)
+app.include_router(billing_router)
+app.include_router(account_router)
+app.include_router(storage_router)
+
+from .recommendation_v2 import router as recommendation_router
+app.include_router(recommendation_router)

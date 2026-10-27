@@ -111,6 +111,8 @@ def test_recommendations_archives_rules_events_feedback(client):
     assert all(r['club']['id']!=id for r in client.get(url+'/recommendations').json())
     assert client.get('/api/clubs/'+id).status_code==404
     assert admin.put('/api/admin/clubs/'+id+'/rule',json={'metric':'attention','minimum':80,'maximum':100,'priority':20,'explanation':'Работа с деталями.'}).status_code==200
+    from .test_marketplace import upgrade
+    upgrade(client)
     different=start(client,create_child(client,8,'Другой город'));finish(client,different);assert client.get(f"/api/sessions/{different['id']}/recommendations").json()==[]
 
 def test_seed_repeatable_and_admin_create_edit(client):

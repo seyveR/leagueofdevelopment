@@ -16,7 +16,7 @@ class User(Identity, Base):
     email: Mapped[str] = mapped_column(String(254), unique=True)
     password_hash: Mapped[str] = mapped_column(String(512))
     role: Mapped[str] = mapped_column(String(16), default='parent')
-    __table_args__=(CheckConstraint("role IN ('parent','admin')"),)
+    __table_args__=(CheckConstraint("role IN ('parent','partner','admin')"),)
 
 class AuthSession(Identity, Base):
     __tablename__='auth_sessions'

@@ -6,7 +6,7 @@ class Output(BaseModel):
     model_config=ConfigDict(from_attributes=True)
 
 class UserOut(Output):
-    id:str;email:str;role:Literal['parent','admin']
+    id:str;email:str;role:Literal['parent','partner','admin']
 
 class AuthOut(Output):
     user:UserOut | None;csrf:str

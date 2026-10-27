@@ -51,9 +51,10 @@ def effective(db,user_id,child_id=None):
 
 @router.get('')
 def read(child_id:str|None=None,user=Depends(current_user),db=Depends(get_db)):
+    from .delivery import channel_status
     key=scope(db,user,child_id)
     return {'schema_version':1,'settings':effective(db,user.id,child_id),'overridden':bool(child_id and db.get(Preference,key)),
-            'notification_channels':{'in_app':True,'email':False,'sms':False,'push':False}}
+            'notification_channels':channel_status()}
 
 @router.put('')
 def save(body:Settings,child_id:str|None=None,user=Depends(current_user),db=Depends(get_db)):

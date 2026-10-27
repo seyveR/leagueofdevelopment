@@ -28,3 +28,15 @@ def test_audio_missing_is_honest_and_no_path_traversal(client):
     assert response['url'] is None
     assert client.get('/api/audio/files/not-a-hash.wav').status_code==404
     assert client.get('/api/audio/resolve',params={'text':'Текст','voice':'unknown'}).status_code==422
+
+def test_prepared_audio_key_cannot_reuse_changed_text(client,tmp_path,monkeypatch):
+    import json,wave
+    from app import audio
+    register(client);monkeypatch.setattr(audio,'AUDIO_ROOT',tmp_path)
+    sha='a'*64;text='Инструкция';key=audio.cache_key(text,'ru-lev',sha)
+    with wave.open(str(tmp_path/f'{key}.wav'),'wb') as out:out.setnchannels(1);out.setsampwidth(2);out.setframerate(24000);out.writeframes(b'\x00\x00'*240)
+    (tmp_path/'manifest.json').write_text(json.dumps({'model_sha256':sha,'clips':{key:text}}),'utf-8')
+    resolved=client.get('/api/audio/resolve',params={'text':text,'voice':'ru-lev'}).json()
+    assert resolved['url'] and client.get(resolved['url']).status_code==200
+    assert client.get('/api/audio/resolve',params={'text':text+' новая','voice':'ru-lev'}).json()['url'] is None
+    assert audio.cache_key(text,'ru-lev',sha)!=audio.cache_key(text,'ru-sofia',sha)

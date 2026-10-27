@@ -23,11 +23,12 @@ const adminItems = [
   {to:'/admin/feedback',label:'Отзывы',accessible:'Обратная связь',icon:'feedback'},
   {to:'/account/password',label:'Пароль',accessible:'Сменить пароль',icon:'password'},
 ] as const;
+const partnerItems=[{to:'/partner',label:'Организация',icon:'home',end:true},{to:'/partner/programs',label:'Программы',icon:'clubs'},{to:'/partner/bookings',label:'Заявки',icon:'tasks'},{to:'/notifications',label:'Уведомления',icon:'feedback'}] as const;
 
 export function Navigation({role}:{role:User['role']}){
   const{pathname}=useLocation();
-  const items = role==='admin' ? adminItems : parentItems;
-  const active=(to:string)=>to==='/admin'?pathname==='/admin'||pathname.startsWith('/admin/completions')||pathname==='/admin/club-transitions':pathname===to||pathname.startsWith(to+'/')||(role==='parent'&&to==='/profile'&&pathname==='/account/password');
+  const items = role==='admin' ? adminItems : role==='partner'?partnerItems:parentItems;
+  const active=(to:string)=>to==='/admin'?pathname==='/admin'||pathname.startsWith('/admin/completions')||pathname==='/admin/club-transitions'||pathname.startsWith('/admin/platform'):to==='/partner'?pathname===to:pathname===to||pathname.startsWith(to+'/')||(role==='parent'&&to==='/profile'&&pathname==='/account/password');
   return <nav className="navigation app-navigation" aria-label="Основная навигация">
     {items.map(item=><Link key={item.to} to={item.to} className={active(item.to)?'active':undefined} aria-current={active(item.to)?'page':undefined} aria-label={'accessible' in item?item.accessible:item.label}>
       <span className="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={paths[item.icon]}/></svg></span>

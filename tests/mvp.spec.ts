@@ -1,4 +1,4 @@
-import{expect,test,type Page}from'@playwright/test';
+import{expect,test,localContext,type Page}from'./local-browser';
 test('15 неверных входов: минута паузы, правильный пароль сразу разрешён',async({page})=>{
   await register(page);await page.goto('/profile');const email=await page.locator('.lead').textContent();
   await page.getByRole('button',{name:'Выйти',exact:true}).click();await expect(page.getByRole('heading',{name:'Вход',exact:true})).toBeVisible();
@@ -46,7 +46,7 @@ for(const role of ['parent','admin'] as const)test(`${role}: смена паро
     await page.goto('/login');await page.getByRole('button',{name:'Создать учётную запись'}).click();await page.getByLabel('Email',{exact:true}).fill(email);await page.getByLabel('Пароль',{exact:true}).fill(old);await page.getByRole('button',{name:'Зарегистрироваться',exact:true}).click();
   }else await login(page,email,old);
   await expect(page.getByRole('heading',{name:role==='admin'?'Администрирование':'Главная',exact:true})).toBeVisible();
-  const otherContext=await browser.newContext();const other=await otherContext.newPage();
+  const otherContext=await localContext(browser);const other=await otherContext.newPage();
   try{
     await login(other,email,old);await expect(other.getByRole('button',{name:'Выйти',exact:true})).toBeVisible();
     if(role==='parent')await page.getByRole('link',{name:'Профиль',exact:true}).click();
@@ -65,7 +65,7 @@ test('выход с уже отозванной сессией и проверк
   await register(page);
   // A separate client changes the password without notifying the open page.
   await page.goto('/profile');const account=await page.locator('.lead').textContent();expect(account).toBeTruthy();
-  const other=await page.context().browser()!.newContext();
+  const other=await localContext(page.context().browser()!);
   try{
     const session=await other.request.get('http://127.0.0.1:8081/api/auth/session');const csrf=(await session.json()).csrf;
     const auth=await other.request.post('http://127.0.0.1:8081/api/auth/login',{headers:{'X-CSRF-Token':csrf},data:{email:account,password}});expect(auth.ok()).toBe(true);
@@ -98,7 +98,7 @@ test('два ребёнка, недопустимый возраст, ошибк
   await register(page);await child(page);await page.getByRole('button',{name:'Начать задания',exact:true}).click();await page.getByRole('link',{name:'Начать прохождение'}).click();
   await page.route('**/api/sessions/*/answers',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'Не удалось сохранить данные. Повторите действие.'})}));
   await page.getByRole('radio').first().check();await page.getByRole('button',{name:'Сохранить и дальше'}).click();await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByRole('radio').first()).toBeChecked();await expect(page.getByText('Задание 1 из 12',{exact:true})).toBeVisible();await page.unroute('**/api/sessions/*/answers');await page.getByRole('button',{name:'Сохранить и дальше'}).click();await expect(page.getByText('Задание 2 из 12',{exact:true})).toBeVisible();
-  await page.getByRole('link',{name:'Выйти и продолжить позже'}).click();await child(page,'Второй','6');await expect(page.getByRole('button',{name:'Начать задания',exact:true})).toBeDisabled();await page.getByRole('combobox',{name:'Активный ребёнок'}).selectOption({label:'Лисёнок · 8 лет'});await page.getByRole('link',{name:'Продолжить · 1 из 12'}).click();await expect(page.getByText('Задание 2 из 12',{exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'Выйти и продолжить позже'}).click();await page.goto('/plans');await page.getByRole('button',{name:'Создать тестовый заказ'}).click();await page.getByRole('button',{name:'Подтвердить тестовую активацию'}).click();await expect(page.getByText('Тестовая подписка активирована',{exact:true})).toBeVisible();await child(page,'Второй','6');await expect(page.getByRole('button',{name:'Начать задания',exact:true})).toBeEnabled();await page.getByRole('combobox',{name:'Активный ребёнок'}).selectOption({label:'Лисёнок · 8 лет'});await page.getByRole('link',{name:'Продолжить · 1 из 12'}).click();await expect(page.getByText('Задание 2 из 12',{exact:true})).toBeVisible();
   for(const path of ['/home','/profile','/programs','/feedback','/children/new'])for(const width of[360,390,430,1280]){await page.setViewportSize({width,height:844});await page.goto(path);await expect(page.locator('h1')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${width}`).toBe(true);}
   await page.goto('/programs');await page.getByRole('textbox',{name:'Город',exact:true}).fill('Нет такого города');await page.getByRole('button',{name:'Показать',exact:true}).click();await expect(page.getByRole('heading',{name:'Кружки не найдены'})).toBeVisible();await page.goto('/admin');await expect(page.getByRole('heading',{name:'Доступ запрещён'})).toBeVisible();
   await page.setViewportSize({width:390,height:844});await page.goto('/home');await page.screenshot({path:'test-results/mvp-home-390.png',fullPage:true});

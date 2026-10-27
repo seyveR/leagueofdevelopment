@@ -12,6 +12,8 @@ services:
   api-be:
     image: liga-api:0.3.0
     build: ./backend
+    volumes:
+      - liga-files:/data
     environment:
       DB_HOST: postgres
       DB_NAME: liga
@@ -45,4 +47,5 @@ services:
     restart: unless-stopped
 volumes:
   liga-data:
+  liga-files:
 
