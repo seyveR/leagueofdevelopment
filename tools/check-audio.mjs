@@ -1,16 +1,23 @@
 // Checks the actual generated files through the running Nginx/API, without an account.
 import {chromium} from '@playwright/test';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 const manifest=JSON.parse(readFileSync('audio-cache/manifest.json','utf8'));
-const samples=Object.entries(manifest.clips).filter(([,text])=>text.startsWith('Привет! Сейчас'));
+let overrides={voices:{}};
+try{overrides=JSON.parse(readFileSync('audio-cache/overrides.json','utf8'));}catch{}
+const samples=Object.entries(manifest.clips).filter(([,text])=>text.startsWith('Привет! Сейчас')).map(([key,text],i)=>{
+  const voice=manifest.voices[i].id;
+  const entry=overrides.voices[voice]?.[createHash('sha256').update(text).digest('hex')];
+  return [entry?.file??`${key}.wav`,text];
+});
 if(samples.length!==2)throw new Error('Expected two real voice samples');
 const browser=await chromium.launch({channel:'msedge',headless:true});
 try{
   const context=await browser.newContext();
   await context.route('**/*',route=>{const u=new URL(route.request().url());return ['127.0.0.1','localhost'].includes(u.hostname)?route.continue():route.abort();});
   const page=await context.newPage();await page.goto('http://127.0.0.1:8080/login');
-  for(const [key] of samples){
-    const url=`/api/audio/files/${key}.wav`;
+  for(const [filename] of samples){
+    const url=`/api/audio/files/${filename}`;
     const decoded=await page.evaluate(async url=>{
       const response=await fetch(url);if(!response.ok)throw new Error('Audio HTTP '+response.status);
       const ctx=new AudioContext();const data=await ctx.decodeAudioData(await response.arrayBuffer());
