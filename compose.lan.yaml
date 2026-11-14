@@ -1,0 +1,10 @@
+# Local-network preview. LAN_IP must be the computer's address on the trusted home LAN.
+# PostgreSQL is intentionally not changed by this override.
+services:
+  mobile-app:
+    ports: !override
+      - "127.0.0.1:${APP_PORT:-8080}:80"
+      - "${LAN_IP:?Set LAN_IP to the home-network IPv4 address}:${APP_PORT:-8080}:80"
+  api-be:
+    environment:
+      PUBLIC_ORIGIN: "http://127.0.0.1:${APP_PORT:-8080},http://${LAN_IP:?Set LAN_IP}:${APP_PORT:-8080}"
