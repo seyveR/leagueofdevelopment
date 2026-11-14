@@ -2,6 +2,9 @@ from pathlib import Path
 from PIL import Image
 root=Path(__file__).resolve().parents[1]
 p=root/'public/redesign';p.mkdir(exist_ok=True)
-im=Image.open(root/'references/redesign/liza.png')
-for state,x,y in [('explaining',302,42),('waiting',522,42),('completed',191,42),('support',302,263),('speaking',413,42)]:
-    im.crop((x,y,x+107,y+215)).save(p/('liza-'+state+'.png'))
+# Character PNGs are now isolated generated assets. Never overwrite them with sheet crops.
+im=Image.open(root/'references/redesign/palette.png')
+for row in range(4):
+    for col in range(5):
+        x=366+col*115;y=55+row*98
+        im.crop((x,y,x+102,y+86)).save(p/('icon-'+str(row*5+col)+'.png'))
