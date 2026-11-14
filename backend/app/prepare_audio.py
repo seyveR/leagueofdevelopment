@@ -19,6 +19,8 @@ def main():
         from .age_tasks import SCENARIOS
         texts.update(t['prompt'] for scenario in SCENARIOS.values() for t in scenario['tasks'])
     except ImportError:pass
+    from .domain_content import SETS
+    texts.update(t['prompt'] for spec in SETS.values() for t in spec['tasks'])
     output.mkdir(parents=True,exist_ok=True);clips={}
     for voice in VOICES:
         if voice['speaker'] not in model.speakers:raise SystemExit(f"Модель не содержит {voice['speaker']}")
@@ -36,4 +38,6 @@ def main():
     temporary.write_text(json.dumps({'model_sha256':sha,'model_version':'v5_cis_base_nostress','voices':VOICES,'clips':clips},ensure_ascii=False,indent=2),'utf-8')
     os.replace(temporary,output/'manifest.json');print(f'Prepared {len(clips)} clips; model sha256={sha}')
 if __name__=='__main__':main()
+
+
 

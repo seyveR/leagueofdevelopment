@@ -13,8 +13,10 @@ const paths:Record<IconName,string> = {
 };
 const parentItems = [
   {to:'/home',label:'Главная',icon:'home'},
-  {to:'/tests',label:'Задания',icon:'tasks'},
+  
   {to:'/programs',label:'Кружки',icon:'clubs'},
+  {to:'/tests',label:'Тесты',icon:'tasks'},
+  {to:'/analytics',label:'Аналитика',icon:'stats'},
   {to:'/profile',label:'Профиль',icon:'profile'},
 ] as const;
 const adminItems = [
@@ -36,3 +38,4 @@ export function Navigation({role}:{role:User['role']}){
     </Link>)}
   </nav>;
 }
+
