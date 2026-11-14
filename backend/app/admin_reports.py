@@ -18,7 +18,7 @@ class CompletionsOut(Output):
     items:list[CompletionOut];total:int;offset:int;limit:int
 
 class AnswerOut(Output):
-    task_id:str;category:str;prompt:str;stimulus:str;selected:str|None;correct:str;is_correct:bool;answered_at:datetime|None
+    task_id:str;category:str;prompt:str;stimulus:str;selected:str|None;correct:str;is_correct:bool|None;answered_at:datetime|None
 
 class CompletionDetailOut(CompletionOut):
     task_set_version:str;answers:list[AnswerOut]
@@ -51,8 +51,8 @@ def completion(id:str,db=Depends(get_db)):
     for task in tasks_for(db,session):
         answer=answers.get(task['id']);labels={o['id']:o['label'] for o in task['options']}
         details.append({'task_id':task['id'],'category':task['category'],'prompt':task['prompt'],'stimulus':task['stimulus'],
-                        'selected':labels.get(answer.option_id) if answer else None,'correct':labels[task['correct']],
-                        'is_correct':bool(answer and answer.option_id==task['correct']),'answered_at':answer.created_at if answer else None})
+                        'selected':labels.get(answer.option_id) if answer else None,'correct':labels[task['correct']] if task.get('scored',True) else 'Свободный выбор; правильного варианта нет',
+                        'is_correct':bool(answer and answer.option_id==task['correct']) if task.get('scored',True) else None,'answered_at':answer.created_at if answer else None})
     return {'session':session,'parent':parent,'result':result,'task_set_version':task_set.version,'answers':details}
 
 @router.get('/club-transitions',response_model=TransitionsOut)
@@ -64,3 +64,4 @@ def transitions(offset:int=Query(0,ge=0),limit:int=Query(20,ge=1,le=100),db=Depe
     rows=db.execute(query.order_by(grouped.c.count.desc(),Club.name,Club.id).offset(offset).limit(limit)).all()
     return {'items':[{'club_id':c.id,'name':c.name,'city':c.city,'archived':c.archived,'count':n,'last_opened_at':last} for c,n,last in rows],
             'total':total,'total_openings':openings,'offset':offset,'limit':limit}
+

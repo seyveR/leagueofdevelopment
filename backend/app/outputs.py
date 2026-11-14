@@ -35,10 +35,11 @@ class TaskOut(Output):
     mechanic:str='choice';difficulty:int=1;left:list[str]=[];right:list[str]=[]
 
 class DetailOut(Output):
-    session:SessionOut;task:TaskOut | None;answers:list[dict[str,str]];total:int
+    session:SessionOut;task:TaskOut | None;answers:list[dict[str,str]];total:int;test_name:str|None=None;instruction:str|None=None
 
 class RecommendationOut(Output):
     club:ClubOut;explanation:str;rules_version:str
 
 class FeedbackOut(Output):
     id:str;user_id:str;rating:int;message:str;created_at:datetime
+

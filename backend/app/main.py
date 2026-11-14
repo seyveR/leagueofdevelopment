@@ -1,3 +1,4 @@
+from .domain_content import NAMES as DOMAIN_NAMES,DESCRIPTIONS as DOMAIN_DESCRIPTIONS
 import secrets
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Request, Response
@@ -136,7 +137,7 @@ def start(body:StartInput,user=Depends(parent),db=Depends(get_db)):
     from .platform_services import consent_required
     consent_required(db,user)
     # Row-lock on child serializes starts, including concurrent retries.
-    old=db.scalar(select(TestSession).where(TestSession.child_id==child.id,TestSession.status=='in_progress'))
+    old=db.scalar(select(TestSession).where(TestSession.child_id==child.id,TestSession.status=='in_progress',TestSession.algorithm_version!='domains-1.0.0'))
     if old: return old
     existing=db.get(TestSession,body.request_id)
     if existing:
@@ -167,7 +168,7 @@ def session_detail(id:str,user=Depends(parent),db=Depends(get_db)):
         t=tasks[s.position]; memory=t['category']=='memory'
         task={'id':t['id'],'category':t['category'],'prompt':t['prompt'],'stimulus':t['stimulus'] if not memory or s.phase=='view' else None,'options':[] if memory and s.phase=='view' else t['options'],'mechanic':t.get('mechanic','choice'),'difficulty':t.get('difficulty',1),'left':t.get('left',[]),'right':t.get('right',[])}
     answers=db.scalars(select(Answer).where(Answer.session_id==id)).all()
-    return {'session':s,'task':task,'answers':[{'task_id':a.task_id,'option_id':a.option_id} for a in answers],'total':12 if s.task_trace else len(tasks)}
+    return {'session':s,'task':task,'answers':[{'task_id':a.task_id,'option_id':a.option_id} for a in answers],'total':12 if s.task_trace else len(tasks),'test_name':DOMAIN_NAMES.get(db.get(TaskSet,s.task_set_id).code.split('-')[1]) if s.algorithm_version=='domains-1.0.0' else None,'instruction':DOMAIN_DESCRIPTIONS.get(db.get(TaskSet,s.task_set_id).code.split('-')[1]) if s.algorithm_version=='domains-1.0.0' else None}
 
 @app.post('/api/sessions/{id}/hide',response_model=SessionOut)
 def hide(id:str,body:PhaseInput,user=Depends(parent),db=Depends(get_db)):
@@ -198,8 +199,12 @@ def complete(id:str,user=Depends(parent),db=Depends(get_db)):
     if previous:return previous
     tasks=adaptive.tasks_for(db,s);answers={a.task_id:a.option_id for a in db.scalars(select(Answer).where(Answer.session_id==id)).all()}
     if s.position!=len(tasks) or set(answers)!={t['id'] for t in tasks}: raise HTTPException(409,'Ответьте на все обязательные задания')
-    if s.algorithm_version not in (assessment.VERSION,'familiarisation-2.0.0'): raise HTTPException(409,'Нужна сохранённая версия алгоритма')
-    r=Result(session_id=id,algorithm_version=s.algorithm_version,scores=adaptive.evaluate(tasks,answers,s.conditions) if s.task_trace else assessment.evaluate(tasks,answers));db.add(r)
+    if s.algorithm_version not in (assessment.VERSION,'familiarisation-2.0.0','domains-1.0.0'): raise HTTPException(409,'Нужна сохранённая версия алгоритма')
+    if s.algorithm_version=='domains-1.0.0':
+        from .domain_tests import evaluate as evaluate_domain
+        scores=evaluate_domain(tasks,answers,db.get(TaskSet,s.task_set_id).code.split('-')[1])
+    else:scores=adaptive.evaluate(tasks,answers,s.conditions) if s.task_trace else assessment.evaluate(tasks,answers)
+    r=Result(session_id=id,algorithm_version=s.algorithm_version,scores=scores);db.add(r)
     s.status='completed';s.completed_at=now()
     db.add(Event(user_id=user.id,session_id=id,kind='completed',request_id=f'completed:{id}'))
     db.commit();return r
@@ -327,3 +332,10 @@ app.include_router(storage_router)
 
 from .recommendation_v2 import router as recommendation_router
 app.include_router(recommendation_router)
+
+from .domain_tests import router as domain_router
+app.include_router(domain_router)
+
+
+
+

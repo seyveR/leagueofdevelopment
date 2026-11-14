@@ -22,7 +22,10 @@ def seed(db):
     if not db.get(Plan,'premium'):db.add(Plan(id='premium',name='Расширенный · тестовый',price_rub=299,child_limit=10,duration_days=30,features=['history','consultations']))
     for club in db.scalars(select(Club)):
         if not db.get(ProgramInfo,club.id):db.add(ProgramInfo(club_id=club.id,format='offline',price_rub=int(''.join(re.search(r'\d[\d\s]*',club.price).group().split())) if re.search(r'\d[\d\s]*',club.price) else 0,tags=[club.name],schedule='Уточните время у организации',status='approved'))
+    from .domain_tests import seed_sets
+    seed_sets(db)
     db.commit()
 
 if __name__=='__main__':
     with SessionLocal() as db:seed(db)
+
