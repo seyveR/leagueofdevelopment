@@ -1,5 +1,26 @@
 import{afterEach,beforeEach,expect,it,vi}from'vitest';
 beforeEach(()=>vi.resetModules());afterEach(()=>vi.unstubAllGlobals());
+it('после выхода обновляет CSRF для регистрации организации без перезагрузки',async()=>{
+ const response=(value:unknown)=>new Response(JSON.stringify(value));
+ const fetch=vi.fn()
+  .mockResolvedValueOnce(response({user:{id:'p',email:'p@example.com',role:'parent'},csrf:'parent-token'}))
+  .mockResolvedValueOnce(response({user:{id:'p',email:'p@example.com',role:'parent'},csrf:'parent-token'}))
+  .mockResolvedValueOnce(response({ok:true}))
+  .mockResolvedValueOnce(response({user:null,csrf:'fresh-token'}))
+  .mockResolvedValueOnce(response({user:{id:'org',role:'partner'},csrf:'partner-token'}));
+ vi.stubGlobal('fetch',fetch);const{api,request}=await import('./api');
+ await api.auth.session();await api.auth.logout();
+ await request('/partner/register','POST',{email:'org@example.com'});
+ expect(fetch.mock.calls[3][0]).toBe('/api/auth/session');
+ expect(fetch.mock.calls[4][1].headers['X-CSRF-Token']).toBe('fresh-token');
+});
+it('одновременные формы используют один запрос нового защитного токена',async()=>{
+ const fetch=vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({user:null,csrf:'shared-token'}))).mockImplementation(()=>Promise.resolve(new Response('{}')));
+ vi.stubGlobal('fetch',fetch);const{request}=await import('./api');
+ await Promise.all([request('/auth/recovery','POST',{}),request('/partner/register','POST',{})]);
+ expect(fetch.mock.calls.filter(([url])=>url==='/api/auth/session')).toHaveLength(1);
+ expect(fetch.mock.calls.slice(1).every(([,options])=>options.headers['X-CSRF-Token']==='shared-token')).toBe(true);
+});
 it('передаёт CSRF и cookie при изменении данных через API',async()=>{const fetch=vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({user:null,csrf:'csrf-from-server'}))).mockResolvedValueOnce(new Response(JSON.stringify({id:'saved'})));vi.stubGlobal('fetch',fetch);const{api}=await import('./api');await api.auth.session();await api.children.save({name:'Имя',age:8,gender:'unspecified',city:'Город',interests:[],consent:true});expect(fetch.mock.calls[1][0]).toBe('/api/children');expect(fetch.mock.calls[1][1]).toMatchObject({method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':'csrf-from-server'}});});
 it('сообщает о сетевой ошибке и не подменяет её успешным сохранением',async()=>{vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new TypeError('network')));const{api}=await import('./api');await expect(api.sessions.answer('id','task','option')).rejects.toThrow('Нет связи с сервером');});
 it('сохраняет статус ошибки API для запрета доступа и повторов',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify({detail:'Доступ запрещён'}),{status:403})));const{api,ApiError}=await import('./api');try{await api.admin.stats();throw new Error('expected failure');}catch(e){expect(e).toBeInstanceOf(ApiError);expect((e as InstanceType<typeof ApiError>).status).toBe(403);}});

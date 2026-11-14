@@ -1,4 +1,14 @@
 import {test,expect} from './local-browser';
+test('регистрация организации после выхода родителя без перезагрузки',async({page})=>{
+ await page.goto('/login');await page.getByRole('button',{name:'Создать учётную запись'}).click();
+ await page.getByLabel('Email',{exact:true}).fill(`csrf-parent-${crypto.randomUUID()}@example.com`);
+ await page.getByLabel('Пароль',{exact:true}).fill('csrf-parent-password');await page.getByRole('button',{name:'Зарегистрироваться',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Главная',exact:true})).toBeVisible();await page.getByRole('button',{name:'Выйти',exact:true}).click();
+ await page.getByRole('link',{name:'Регистрация организации',exact:true}).click();
+ for(const [label,value] of [['Email',`csrf-org-${crypto.randomUUID()}@example.com`],['Пароль','csrf-partner-password'],['Организация','Проверка регистрации'],['Город','Архангельск'],['Контакт','test@example.com']])await page.getByLabel(label,{exact:true}).fill(value);
+ await page.getByRole('checkbox',{name:/Согласен на хранение/}).check();await page.getByRole('button',{name:'Зарегистрировать организацию',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Кабинет организации',exact:true})).toBeVisible();
+});
 test('пять самостоятельных тестов, восстановление, персонаж и мобильные экраны',async({page})=>{
   await page.goto('/login');await page.getByRole('button',{name:'Создать учётную запись'}).click();
   await page.getByLabel('Email',{exact:true}).fill(`redesign-${crypto.randomUUID()}@example.com`);await page.getByLabel('Пароль',{exact:true}).fill('redesign-parent-password');await page.getByRole('button',{name:'Зарегистрироваться',exact:true}).click();

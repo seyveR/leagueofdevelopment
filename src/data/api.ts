@@ -4,10 +4,18 @@ export type SessionEndReason='expired'|'logout'|'password_changed';
 const sessionListeners=new Set<(reason:SessionEndReason)=>void>();
 let sessionGeneration=0;
 let currentUserId:string|null=null;
+let csrfReady:Promise<User|null>|null=null;
+async function ensureCsrf(){
+  if(csrf)return;
+  // Share bootstrap so simultaneous forms cannot mint competing CSRF cookies.
+  if(!csrfReady)csrfReady=auth('/auth/session').finally(()=>{csrfReady=null;});
+  await csrfReady;
+}
 export function onSessionEnded(listener:(reason:SessionEndReason)=>void){sessionListeners.add(listener);return()=>{sessionListeners.delete(listener);};}
 function endSession(reason:SessionEndReason){sessionGeneration++;currentUserId=null;csrf='';for(const listener of sessionListeners)listener(reason);}
 export class ApiError extends Error { constructor(public status:number,message:string){super(message);} }
 export async function request<T>(path:string,method='GET',body?:unknown):Promise<T>{
+  if(!['GET','HEAD','OPTIONS'].includes(method))await ensureCsrf();
   const generation=sessionGeneration;
   let response:Response;
   try {response=await fetch(`/api${path}`,{method,credentials:'same-origin',headers:{'Content-Type':body instanceof Blob?body.type||'application/octet-stream':'application/json',...(method==='GET'?{}:{'X-CSRF-Token':csrf})},...(body===undefined?{}:{body:body instanceof Blob?body:JSON.stringify(body)})});}
@@ -17,7 +25,7 @@ export async function request<T>(path:string,method='GET',body?:unknown):Promise
   return value as T;
 }
 async function auth(path:string,body?:unknown){const generation=sessionGeneration;const value=await request<{user:User|null;csrf:string}>(path,body?'POST':'GET',body);if(generation!==sessionGeneration)throw new ApiError(401,'Сессия изменилась. Войдите заново.');if(!value.user&&currentUserId)endSession('expired');if(body)sessionGeneration++;currentUserId=value.user?.id??null;csrf=value.csrf;return value.user;}
-async function credentials(path:string,email:string,password:string){if(!csrf)await auth('/auth/session');return auth(path,{email,password});}
+async function credentials(path:string,email:string,password:string){await ensureCsrf();return auth(path,{email,password});}
 // Screens depend on these API repositories, never on IndexedDB or SQLAlchemy.
 export const api={
   auth:{passwordReset:async(token:string,password:string)=>{await request('/auth/reset','POST',{token,password});endSession('password_changed');},session:()=>auth('/auth/session'),register:(email:string,password:string)=>credentials('/auth/register',email,password),login:(email:string,password:string)=>credentials('/auth/login',email,password),logout:async()=>{await auth('/auth/session');await request('/auth/logout','POST');endSession('logout');},changePassword:async(current_password:string,new_password:string,confirmation:string)=>{await request('/auth/password','POST',{current_password,new_password,confirmation});endSession('password_changed');}},
