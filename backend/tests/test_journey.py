@@ -83,5 +83,6 @@ def test_catalog_import_slots_and_booking_no_duplicates(client):
     response=client.post('/api/bookings',json=body);assert response.status_code==200,response.text
     assert client.post('/api/bookings',json=body).json()['id']==response.json()['id']
     assert client.post('/api/bookings',json={**body,'request_id':str(uuid4())}).json()['id']==response.json()['id']
-    assert len(client.get('/api/bookings').json())==1
+    bookings=client.get('/api/bookings').json();assert len(bookings)==1
+    assert bookings[0]['program_address']=='Ул. Гайдара, д. 63' and bookings[0]['program_phone']=='89118717647' and bookings[0]['program_city']=='Архангельск'
     assert len(PROGRAMS)==14

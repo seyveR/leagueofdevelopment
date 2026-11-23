@@ -238,7 +238,7 @@ def book(body:BookingInput,user=Depends(parent),db=Depends(get_db)):
 
 def booking_data(db,b):
     club=db.get(Club,b.club_id);slot=db.get(TrialSlot,b.slot_id)
-    return {**data(b,'id child_id club_id slot_id status contact snapshot note created_at'),'program_name':club.name,'starts_at':slot.starts_at,
+    return {**data(b,'id child_id club_id slot_id status contact snapshot note created_at'),'program_name':club.name,'program_address':club.address,'program_city':club.city,'program_phone':club.phone,'starts_at':slot.starts_at,
             'history':[data(e,'id status note created_at') for e in db.scalars(select(BookingEvent).where(BookingEvent.booking_id==b.id).order_by(BookingEvent.created_at))]}
 @router.get('/bookings')
 def my_bookings(user=Depends(parent),db=Depends(get_db)):return [booking_data(db,b) for b in db.scalars(select(Booking).where(Booking.parent_id==user.id).order_by(Booking.created_at.desc()))]
