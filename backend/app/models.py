@@ -62,7 +62,7 @@ class TestSession(Identity, Base):
     task_trace: Mapped[list] = mapped_column(JSON, default=list)
     conditions: Mapped[dict] = mapped_column(JSON, default=dict)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    __table_args__=(CheckConstraint('position BETWEEN 0 AND 12'),CheckConstraint("status IN ('in_progress','completed')"))
+    __table_args__=(CheckConstraint('position BETWEEN 0 AND 50'),CheckConstraint("status IN ('in_progress','completed')"))
 
 class Answer(Identity, Base):
     __tablename__='answers'

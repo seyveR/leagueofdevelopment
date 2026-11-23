@@ -42,14 +42,24 @@ def recommendations(id:str,format:str='',max_price:int|None=Query(None,ge=0,le=1
         if c.city.casefold()!=snapshot['city'].strip().casefold():continue
         try:club,info=public_program(db,c.id)
         except HTTPException:continue
-        if session.algorithm_version=='discovery-1.0.0' and info and 'direction:consultation' in info.tags:continue
+        if session.algorithm_version.startswith('discovery-') and info and 'direction:consultation' in info.tags:continue
+        if session.algorithm_version=='discovery-2.0.0':
+            allowed=result.scores.get('recommended_codes',[])
+            if not info or not any('direction:'+d in info.tags for d in allowed):continue
         if format and (not info or info.format!=format):continue
         if max_price is not None and (not info or info.price_rub>max_price):continue
         if schedule and (not info or schedule.casefold() not in info.schedule.casefold()):continue
         points=rule.priority;reasons=['Возраст и город соответствуют профилю на момент прохождения.']
         if info and interests.intersection(t.casefold() for t in info.tags):points+=w['interests'];reasons.append('Совпадают указанные интересы.')
         group=result.scores.get(rule.metric)
-        if session.algorithm_version=='discovery-1.0.0':
+        if session.algorithm_version=='discovery-2.0.0':
+            directions=[d for d in result.scores.get('recommended_codes',[]) if info and 'direction:'+d in info.tags]
+            direction=max(directions,key=lambda d:result.scores['affinities'][d])
+            points+=w['result']*result.scores['affinities'][direction]/100
+            primary={d['code'] for d in result.scores.get('directions',[])}
+            if direction in primary:points+=1000
+            reasons.append('Основное направление по результатам заданий.' if direction in primary else 'Выбран интерес к творческим занятиям.' if not primary else 'Дополнительное направление, прошедшее порог подбора.')
+        elif session.algorithm_version=='discovery-1.0.0':
             from .journey_assessment import reason
             from .journey_content import DIRECTIONS
             directions=[t.removeprefix('direction:') for t in (info.tags if info else []) if t.startswith('direction:')]
@@ -60,5 +70,5 @@ def recommendations(id:str,format:str='',max_price:int|None=Query(None,ge=0,le=1
         elif group and rule.minimum<=group['percent']<=rule.maximum:points+=w['result'];reasons.append('Совпало предварительное правило каталога для этого набора заданий.')
         for active,key,label in [(bool(format),'format','Выбранный формат.'),(max_price is not None,'budget','В пределах выбранного бюджета.'),(bool(schedule),'schedule','Совпало расписание.')]:
             if active:points+=w[key];reasons.append(label)
-        items.append({'club':c,'explanation':' '.join(reasons),'rules_version':'discovery-match-1.0.0' if session.algorithm_version=='discovery-1.0.0' else 'weighted-1.0.0','score':points})
+        items.append({'club':c,'explanation':' '.join(reasons),'rules_version':'discovery-match-2.0.0' if session.algorithm_version=='discovery-2.0.0' else 'discovery-match-1.0.0' if session.algorithm_version=='discovery-1.0.0' else 'weighted-1.0.0','score':points})
     return sorted(items,key=lambda item:(-item['score'],item['club'].id))[:5]

@@ -49,7 +49,7 @@ def completion(id:str,db=Depends(get_db)):
     details=[]
     from .adaptive import tasks_for
     for task in tasks_for(db,session):
-        if session.algorithm_version=='discovery-1.0.0':
+        if session.algorithm_version.startswith('discovery-'):
             from .journey_assessment import score_task
             answer=answers.get(task['id']);payload=answer.payload if answer else None
             score=score_task(task,payload) if payload else None

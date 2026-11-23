@@ -8,9 +8,9 @@ def validate(task, payload):
         if not isinstance(value,list) or len(value)>maximum or (exact and len(value)!=maximum) or any(not isinstance(x,str) or x not in pool for x in value):raise ValueError()
         return value
     try:
-        if kind in ('combine','memory','targets','order'):
+        if kind in ('decision','preference','combine','memory','targets','order'):
             if set(payload)!={'selected'}:raise ValueError()
-            selected=sequence(payload['selected'],allowed,cfg.get('length',cfg.get('max_select',len(allowed))),kind=='order')
+            selected=sequence(payload['selected'],allowed,1 if kind in ('decision','preference') else cfg.get('length',cfg.get('max_select',len(allowed))),kind in ('order','decision','preference'))
             if len(set(selected))!=len(selected) or (kind=='combine' and not selected):raise ValueError()
         elif kind=='sort':
             if set(payload)!={'buckets'}:raise ValueError()
@@ -41,7 +41,7 @@ def validate(task, payload):
 
 def score_task(task,payload):
     kind=task['mechanic'];key=task['config'].get('key')
-    if kind in ('combine','draw'):return None
+    if kind in ('combine','draw','preference'):return None
     if kind in ('memory','targets'):
         selected=set(payload['selected']);target=set(key)
         found=len(selected&target);wrong=len(selected-target)

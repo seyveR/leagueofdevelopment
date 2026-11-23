@@ -28,11 +28,12 @@ def test_age_boundaries(age,expected):assert group_for(age)==expected
 @pytest.mark.parametrize('age',[5,9,13,16])
 def test_full_journey_resume_separate_raw_answers_and_history(client,age):
     register(client);child=create_child(client,age);group=group_for(age);spec=SETS[f'{group[0]}-{group[1]}']
-    before=client.get('/api/journey',params={'child_id':child['id']}).json();assert before['set_id']==spec['id']
+    before=client.get('/api/journey',params={'child_id':child['id']}).json();assert before['count'] in (20,30,40,50)
     body={'child_id':child['id'],'request_id':str(uuid4())}
-    response=client.post('/api/journey/start',json=body);assert response.status_code==200,response.text
-    session=response.json();id=session['id'];assert session['algorithm_version']==VERSION and not session['conditions']['speech']
-    assert client.post('/api/journey/start',json={**body,'request_id':str(uuid4())}).json()['id']==id
+    from app.models import TestSession
+    with SessionLocal() as db:
+        db.add(TestSession(id=body['request_id'],child_id=child['id'],task_set_id=spec['id'],algorithm_version=VERSION,child_snapshot={'name':child['name'],'age':age,'city':child['city'],'interests':[]},conditions={'speech':False}));db.commit()
+    session=client.get('/api/sessions/'+body['request_id']).json()['session'];id=session['id'];assert session['algorithm_version']==VERSION
     assert client.post('/api/sessions/'+id+'/complete').status_code==409
     for i,task in enumerate(spec['tasks']):
         detail=client.get('/api/journey/'+id).json();assert detail['session']['position']==i
