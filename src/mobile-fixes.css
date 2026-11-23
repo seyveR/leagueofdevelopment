@@ -1,0 +1,8 @@
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* Route focus helps screen readers; it must not draw a frame around headings. */
+h1[tabindex="-1"]:focus{outline:none}
+@media(max-width:900px){
+  /* iOS zooms focused controls with small text and may keep that zoom on navigation. */
+  input:not([type="checkbox"]):not([type="radio"]),select,textarea{font-size:16px!important}
+  .topbar{height:auto;padding-top:calc(20px + env(safe-area-inset-top));padding-left:max(22px,env(safe-area-inset-left));padding-right:max(22px,env(safe-area-inset-right))}
+}

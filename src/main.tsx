@@ -9,4 +9,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><
 if(import.meta.env.PROD && 'serviceWorker' in navigator){void navigator.serviceWorker.register('/sw.js').catch(()=>{});}
 
 import './redesign/redesign.css';
+import './mobile-fixes.css';
 import './number-inputs';
