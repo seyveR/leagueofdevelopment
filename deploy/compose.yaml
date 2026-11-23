@@ -1,0 +1,59 @@
+name: liga-public
+services:
+  mobile-app:
+    image: liga-mobile:${APP_VERSION:?Set APP_VERSION}
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      api-be:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  api-be:
+    image: liga-api:${APP_VERSION:?Set APP_VERSION}
+    environment:
+      DB_HOST: postgres
+      DB_NAME: liga
+      DB_USER: liga
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      PUBLIC_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN}
+      COOKIE_SECURE: "true"
+    volumes:
+      - liga-files:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  postgres:
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_DB: liga
+      POSTGRES_USER: liga
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - liga-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liga -d liga"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  liga-data:
+  liga-files:
+    external: true
+    name: liga-public_liga-files

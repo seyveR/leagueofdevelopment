@@ -1,0 +1,10 @@
+[Unit]
+Description=League database and file backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/league/backup.sh
+TimeoutStartSec=180
+UMask=0077

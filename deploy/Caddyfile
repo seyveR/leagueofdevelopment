@@ -1,0 +1,7 @@
+{$APP_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8080
+}
+www.{$APP_DOMAIN} {
+    redir https://{$APP_DOMAIN}{uri} permanent
+}
