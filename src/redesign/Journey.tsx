@@ -3,7 +3,7 @@ import {useRef,useState,type PointerEvent} from 'react';
 import {Link,Navigate,useNavigate} from 'react-router-dom';
 import {useApp} from '../app/ApiApp';
 import {api} from '../data/api';
-import {journey,journeyVersion,type JourneyTask,type JourneyPayload,type Stroke,type JourneyScores,type Metric} from '../data/journey';
+import {journey,journeyVersion,journeyPresentation,type JourneyTask,type JourneyPayload,type Stroke,type JourneyScores,type Metric} from '../data/journey';
 import {entityId} from '../domain/id';
 import type {Session} from '../domain/api-models';
 import {useResource,useAction,Loading,Feedback,date} from '../platform/common';
@@ -12,16 +12,21 @@ import './journey.css';
 const labels:Record<string,string>={logic:'Логические задания',attention:'Поиск деталей',memory:'Зрительная память',spatial:'Маршрут',story:'Последовательность событий',imagination:'Творческий выбор'};
 const arrows:Record<string,string>={up:'↑',left:'←',right:'→',down:'↓'};
 export function JourneyCatalog(){
+  const {data,activeId}=useApp();const child=data.children.find(c=>c.id===activeId);
+  return <JourneyCatalogContent key={child?`${child.id}-${child.age}`:'empty'}/>;
+}
+function JourneyCatalogContent(){
   const {data,activeId,refresh}=useApp(),navigate=useNavigate(),action=useAction();
   const child=data.children.find(c=>c.id===activeId);
+  const presentation=journeyPresentation(child?.age??4);
   const load=useResource(()=>child?journey.catalog(child.id):Promise.resolve(null),child?.id);
   const sessions=data.sessions.filter(s=>s.child_id===child?.id);
   const current=sessions.find(s=>s.task_set_id===load.value?.set_id&&s.status==='in_progress');
   const requestId=useRef(entityId());
   return <><h1>Тесты</h1>{!child?<section className="card"><h2>Начнём с профиля ребёнка</h2><p>Возраст определяет сложность игровых заданий.</p><Link className="button" to="/children/new">Добавить ребёнка</Link></section>:<>
     <p>{child.name} · {child.age} лет</p>
-    {load.value===undefined?<Loading {...load}/>:<section className="card journey-intro"><span className="pill">{load.value?.age_group??'4–17'} лет · 10 заданий</span><h2>Путь открытий</h2><p>Собирай идеи, рисуй, запоминай картинки и прокладывай маршрут. После прохождения — результат и подбор занятий по ответам.</p><p>Около 10–15 минут. Можно прерваться после любого сохранённого задания. Озвучка этого набора выключена.</p><div className="journey-age-groups" aria-label="Возрастные варианты">{load.value?.groups.map(g=><span className={g.min<=child.age&&g.max>=child.age?'active':''} key={g.min}>{g.min}–{g.max}</span>)}</div><Feedback {...action}/>{load.value?.available?<button disabled={action.busy} onClick={()=>void action.run(async()=>{const s=current??await journey.start(child.id,requestId.current);await refresh();navigate(`/sessions/${s.id}/${current?'tasks':'intro'}`);})}>{current?`Продолжить · ${current.position} из 10`:'Начать прохождение'}</button>:<p>Этот путь доступен детям от 4 до 17 лет. Старые результаты доступны в истории.</p>}</section>}
-    <section className="card"><h2>История прохождений</h2>{sessions.length?sessions.map(s=><p key={s.id}><Link to={`/sessions/${s.id}/${s.status==='completed'?'result':'tasks'}`}>{date(s.created_at)} · {(data.results.find(r=>r.session_id===s.id)?.scores as unknown as {test_name?:string})?.test_name??(s.algorithm_version===journeyVersion?'Путь открытий':'Прежний набор')} · {s.status==='completed'?'Результат':`Продолжить · ${s.position}`}</Link></p>):<p>Здесь появятся сохранённые прохождения ребёнка.</p>}</section>
+    {load.value===undefined?<Loading {...load}/>:<section className="card journey-intro"><span className="pill">{load.value?.age_group??'4–17'} лет · 10 заданий</span><h2>{presentation.title}</h2><p>{presentation.description}</p><p>Около 10–15 минут. Можно прерваться после любого сохранённого задания. Озвучка этого набора выключена.</p><div className="journey-age-groups" aria-label="Возрастные варианты">{load.value?.groups.map(g=><span className={g.min<=child.age&&g.max>=child.age?'active':''} key={g.min}>{g.min}–{g.max}</span>)}</div><Feedback {...action}/>{load.value?.available?<button disabled={action.busy} onClick={()=>void action.run(async()=>{const s=current??await journey.start(child.id,requestId.current);await refresh();navigate(`/sessions/${s.id}/${current?'tasks':'intro'}`);})}>{current?`Продолжить · ${current.position} из 10`:'Начать прохождение'}</button>:<p>Этот путь доступен детям от 4 до 17 лет. Старые результаты доступны в истории.</p>}</section>}
+    <section className="card"><h2>История прохождений</h2>{sessions.length?sessions.map(s=><p key={s.id}><Link to={`/sessions/${s.id}/${s.status==='completed'?'result':'tasks'}`}>{date(s.created_at)} · {s.algorithm_version===journeyVersion?journeyPresentation(s.child_snapshot.age).title:((data.results.find(r=>r.session_id===s.id)?.scores as unknown as {test_name?:string})?.test_name??'Прежний набор')} · {s.status==='completed'?'Результат':`Продолжить · ${s.position}`}</Link></p>):<p>Здесь появятся сохранённые прохождения ребёнка.</p>}</section>
   </>}</>;
 }
 
@@ -86,5 +91,5 @@ export function JourneyResult({session}:{session:Session}){
   const load=useResource(()=>api.sessions.result(session.id),session.id);
   if(!load.value)return <Loading {...load}/>;
   const s=load.value.scores as unknown as JourneyScores;
-  return <><h1>Результат: путь открытий</h1><p>{session.child_snapshot.name} · {session.child_snapshot.age} лет · {date(session.completed_at??session.created_at)}</p><section className="card"><h2>Выполнено {s.completed} из {s.total}</h2></section><section className="card"><h2>Что получилось в заданиях</h2>{Object.keys(labels).filter(k=>k!=='imagination'&&s[k]).map(k=>{const m=s[k] as Metric;return <div className="journey-metric" key={k}><strong>{labels[k]}</strong><span>{m.correct} из {m.total} действий</span><progress max={m.total} value={m.correct} aria-label={labels[k]}/></div>;})}</section><h2>Какие занятия попробовать</h2>{s.directions.slice(0,2).map(d=><section className="card" key={d.code}><h3>{d.name}</h3><p>{d.reason.split('. Это')[0]}</p></section>)}<Link className="button" to={`/sessions/${session.id}/recommendations`}>Подобрать кружки</Link><section className="card"><h2>Подробности прохождения</h2>{s.task_details.map((t,i)=><details key={t.task_id}><summary>{i+1}. {t.prompt}</summary><p>{t.score?`${t.score.correct} из ${t.score.total} проверяемых действий`:'Свободное творческое задание; ответ сохранён без оценки.'}</p></details>)}</section><Link className="back" to="/tests">Вернуться к тестам</Link></>;
+  return <><h1>Результат: {journeyPresentation(session.child_snapshot.age).title}</h1><p>{session.child_snapshot.name} · {session.child_snapshot.age} лет · {date(session.completed_at??session.created_at)}</p><section className="card"><h2>Выполнено {s.completed} из {s.total}</h2></section><section className="card"><h2>Что получилось в заданиях</h2>{Object.keys(labels).filter(k=>k!=='imagination'&&s[k]).map(k=>{const m=s[k] as Metric;return <div className="journey-metric" key={k}><strong>{labels[k]}</strong><span>{m.correct} из {m.total} действий</span><progress max={m.total} value={m.correct} aria-label={labels[k]}/></div>;})}</section><h2>Какие занятия попробовать</h2>{s.directions.slice(0,2).map(d=><section className="card" key={d.code}><h3>{d.name}</h3><p>{d.reason.split('. Это')[0]}</p></section>)}<Link className="button" to={`/sessions/${session.id}/recommendations`}>Подобрать кружки</Link><section className="card"><h2>Подробности прохождения</h2>{s.task_details.map((t,i)=><details key={t.task_id}><summary>{i+1}. {t.prompt}</summary><p>{t.score?`${t.score.correct} из ${t.score.total} проверяемых действий`:'Свободное творческое задание; ответ сохранён без оценки.'}</p></details>)}</section><Link className="back" to="/tests">Вернуться к тестам</Link></>;
 }

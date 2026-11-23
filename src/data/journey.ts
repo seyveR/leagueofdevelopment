@@ -2,6 +2,12 @@ import {request} from './api';
 import type {Session} from '../domain/api-models';
 
 export const journeyVersion='discovery-1.0.0';
+export function journeyPresentation(age:number){
+  if(age<8)return {title:'Первые открытия',description:'Рисуй, запоминай картинки, находи звёздочки и помогай роботу. В конце узнаем, какие занятия попробовать.'};
+  if(age<11)return {title:'Мир исследователя',description:'Собирай модели и истории, находи закономерности и проверяй память. По твоим ответам подберём интересные кружки.'};
+  if(age<15)return {title:'Лаборатория идей',description:'Решай задачи с фигурами и числами, разбирай ситуации и планируй действия. После прохождения получишь результаты и подбор занятий.'};
+  return {title:'Маршрут возможностей',description:'Ищи закономерности, проверяй решения и собирай план проекта. Сопоставь результаты заданий со своими интересами и выбери занятия.'};
+}
 export type Item={id:string;label:string};
 export type Stroke=[number,number][];
 export type JourneyTask={id:string;prompt:string;category:string;mechanic:string;config:{
