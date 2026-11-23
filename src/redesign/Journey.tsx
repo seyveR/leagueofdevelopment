@@ -55,7 +55,7 @@ function Activity({task:t,session,reload}:{task:JourneyTask;session:Session;relo
   if(t.mechanic==='odd'){payload={item,reason};ready=!!item&&!!reason;}
   if(t.mechanic==='patterns'){payload={selected:pattern};ready=pattern.every(Boolean);}
   if(t.mechanic==='draw'){payload={choice:item,strokes};ready=!!item&&strokes.length>0;}
-  return <section className="card journey-activity"><span className="pill">{labels[t.category]}</span><h1>{t.prompt}</h1>
+  return <section className="card journey-activity"><span className="pill">{labels[t.category]}</span><h1><ColorfulText text={t.mechanic==='memory'?(memory?'Запомни картинки.':'Выбери картинки, которые ты запомнил.'):t.prompt}/></h1>
     {memory?<><div className="memory-material" aria-label="Картинки для запоминания">{cfg.material?.map((s,i)=><span key={i}>{s}</span>)}</div><p>Посмотри на картинки. Когда запомнишь — скрой их.</p><button disabled={action.busy} onClick={()=>void action.run(async()=>{await api.sessions.hide(session.id,t.id);reload();})}>Скрыть и ответить</button></>:<>
       {t.mechanic==='draw'&&<Drawing shape={cfg.shape??'circle'} strokes={strokes} change={setStrokes} disabled={action.busy}/>}
       {t.mechanic==='sort'&&<div className="sort-cards">{choices.map((c,i)=><div className="sort-card" key={c.id}><strong>{c.label}</strong><div className="button-row">{cfg.buckets?.map((label,b)=><button type="button" aria-pressed={buckets[i]===String(b)} className={buckets[i]===String(b)?'chosen':'secondary'} key={b} onClick={()=>setBuckets(v=>v.map((old,j)=>j===i?String(b):old))}>{label}</button>)}</div></div>)}</div>}
