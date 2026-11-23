@@ -68,7 +68,7 @@ def export(user=Depends(current_user),db=Depends(get_db)):
     sessions=db.scalars(select(TestSession).where(TestSession.child_id.in_(ids))).all();session_ids=[s.id for s in sessions]
     result={'schema_version':1,'user':data(user,'id email role'),'children':[data(c,'id name age gender city interests consent_at consent_version') for c in children],
             'sessions':[data(s,'id task_set_id child_snapshot algorithm_version conditions task_trace created_at completed_at status') for s in sessions],
-            'answers':[data(a,'session_id task_id option_id gesture_ms created_at') for a in db.scalars(select(Answer).where(Answer.session_id.in_(session_ids)))],
+            'answers':[data(a,'session_id task_id option_id payload gesture_ms created_at') for a in db.scalars(select(Answer).where(Answer.session_id.in_(session_ids)))],
             'results':[data(r,'session_id scores algorithm_version') for r in db.scalars(select(Result).where(Result.session_id.in_(session_ids)))],
             'bookings':[data(b,'id club_id slot_id status contact snapshot created_at') for b in db.scalars(select(Booking).where(Booking.parent_id==user.id))]}
     # Correct-answer keys are private to the platform, not part of a personal export.

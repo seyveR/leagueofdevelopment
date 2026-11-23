@@ -24,6 +24,10 @@ def seed(db):
         if not db.get(ProgramInfo,club.id):db.add(ProgramInfo(club_id=club.id,format='offline',price_rub=int(''.join(re.search(r'\d[\d\s]*',club.price).group().split())) if re.search(r'\d[\d\s]*',club.price) else 0,tags=[club.name],schedule='Уточните время у организации',status='approved'))
     from .domain_tests import seed_sets
     seed_sets(db)
+    from .journey import seed_sets as seed_journey
+    seed_journey(db)
+    from .catalog_2026 import seed as seed_catalog
+    seed_catalog(db)
     db.commit()
 
 if __name__=='__main__':

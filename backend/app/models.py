@@ -69,6 +69,7 @@ class Answer(Identity, Base):
     session_id: Mapped[str] = mapped_column(ForeignKey('test_sessions.id'), index=True)
     task_id: Mapped[str] = mapped_column(String(40))
     option_id: Mapped[str] = mapped_column(String(40))
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     gesture_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     __table_args__=(UniqueConstraint('session_id','task_id'),)
 

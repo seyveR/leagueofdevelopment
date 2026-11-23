@@ -2,7 +2,7 @@ import type {Club,Child,User,GroupScore} from '../domain/api-models';
 export interface Organization {id:string;name:string;description:string;city:string;contact:string;status:string;reason:string;document_id:string|null}
 export interface ProgramInfo {club_id:string;organization_id:string|null;format:'online'|'offline'|'hybrid';price_rub:number;tags:string[];photos:string[];schedule:string;promotion:string;status:string;reason:string}
 export interface Program extends Club {details:ProgramInfo|null}
-export interface Slot {id:string;starts_at:string;capacity:number;enabled?:boolean}
+export interface Slot {id:string;starts_at:string;capacity:number;remaining?:number;enabled?:boolean}
 export interface ProgramDetail extends Program {slots:Slot[];reviews:{id:string;rating:number;message:string;created_at:string}[];rating:number|null;favorite:boolean;organization:{id:string;name:string}|null}
 export interface Booking {id:string;child_id:string;club_id:string;slot_id:string;status:string;contact:string;snapshot:{name:string;age:number};note:string;created_at:string;program_name:string;starts_at:string;history:{id:string;status:string;note:string;created_at:string}[]}
 export interface Plan {id:string;name:string;price_rub:number;child_limit:number;duration_days:number;features:string[];active?:boolean}

@@ -49,6 +49,19 @@ def completion(id:str,db=Depends(get_db)):
     details=[]
     from .adaptive import tasks_for
     for task in tasks_for(db,session):
+        if session.algorithm_version=='discovery-1.0.0':
+            from .journey_assessment import score_task
+            answer=answers.get(task['id']);payload=answer.payload if answer else None
+            score=score_task(task,payload) if payload else None
+            import json
+            labels={o['id']:o['label'] for o in task['config'].get('choices',[])}
+            if payload and task['mechanic']=='draw':selected=f"{labels.get(payload['choice'],'Рисунок')}; штрихов: {len(payload['strokes'])}"
+            elif payload and 'selected' in payload:selected=' → '.join(labels.get(x,x) for x in payload['selected']) or 'Ни один элемент не выбран'
+            else:selected=json.dumps(payload,ensure_ascii=False) if payload else None
+            details.append({'task_id':task['id'],'category':task['category'],'prompt':task['prompt'],'stimulus':'',
+                'selected':selected,'correct':f"Совпало действий: {score['correct']} из {score['total']}" if score else 'Свободное задание без оценки качества',
+                'is_correct':score['correct']==score['total'] if score else None,'answered_at':answer.created_at if answer else None})
+            continue
         answer=answers.get(task['id']);labels={o['id']:o['label'] for o in task['options']}
         details.append({'task_id':task['id'],'category':task['category'],'prompt':task['prompt'],'stimulus':task['stimulus'],
                         'selected':labels.get(answer.option_id) if answer else None,'correct':labels[task['correct']] if task.get('scored',True) else 'Свободный выбор; правильного варианта нет',

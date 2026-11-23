@@ -137,7 +137,7 @@ def start(body:StartInput,user=Depends(parent),db=Depends(get_db)):
     from .platform_services import consent_required
     consent_required(db,user)
     # Row-lock on child serializes starts, including concurrent retries.
-    old=db.scalar(select(TestSession).where(TestSession.child_id==child.id,TestSession.status=='in_progress',TestSession.algorithm_version!='domains-1.0.0'))
+    old=db.scalar(select(TestSession).where(TestSession.child_id==child.id,TestSession.status=='in_progress',TestSession.algorithm_version.not_in(['domains-1.0.0','discovery-1.0.0'])))
     if old: return old
     existing=db.get(TestSession,body.request_id)
     if existing:
@@ -163,6 +163,8 @@ def start(body:StartInput,user=Depends(parent),db=Depends(get_db)):
 @app.get('/api/sessions/{id}',response_model=DetailOut)
 def session_detail(id:str,user=Depends(parent),db=Depends(get_db)):
     s=owned_session(db,id,user);tasks=adaptive.tasks_for(db,s)
+    if s.algorithm_version=='discovery-1.0.0':
+        return {'session':s,'task':None,'answers':[],'total':len(tasks),'test_name':'Путь открытий','instruction':'Десять игровых заданий для возраста ребёнка. Взрослый может прочитать инструкцию, но не подсказывать решение. Звук выключен. Ответы сохраняются после каждого задания.'}
     task=None
     if s.position<len(tasks) and s.status=='in_progress':
         t=tasks[s.position]; memory=t['category']=='memory'
@@ -181,6 +183,7 @@ def hide(id:str,body:PhaseInput,user=Depends(parent),db=Depends(get_db)):
 @app.post('/api/sessions/{id}/answers',response_model=SessionOut)
 def save_answer(id:str,body:AnswerInput,user=Depends(parent),db=Depends(get_db)):
     s=owned_session(db,id,user,True);tasks=adaptive.tasks_for(db,s)
+    if s.algorithm_version=='discovery-1.0.0':raise HTTPException(422,'Используйте интерактивный формат ответа')
     previous=db.scalar(select(Answer).where(Answer.session_id==id,Answer.task_id==body.task_id))
     if previous:
         if previous.option_id==body.option_id: return s
@@ -199,8 +202,12 @@ def complete(id:str,user=Depends(parent),db=Depends(get_db)):
     if previous:return previous
     tasks=adaptive.tasks_for(db,s);answers={a.task_id:a.option_id for a in db.scalars(select(Answer).where(Answer.session_id==id)).all()}
     if s.position!=len(tasks) or set(answers)!={t['id'] for t in tasks}: raise HTTPException(409,'Ответьте на все обязательные задания')
-    if s.algorithm_version not in (assessment.VERSION,'familiarisation-2.0.0','domains-1.0.0'): raise HTTPException(409,'Нужна сохранённая версия алгоритма')
-    if s.algorithm_version=='domains-1.0.0':
+    if s.algorithm_version not in (assessment.VERSION,'familiarisation-2.0.0','domains-1.0.0','discovery-1.0.0'): raise HTTPException(409,'Нужна сохранённая версия алгоритма')
+    if s.algorithm_version=='discovery-1.0.0':
+        from .journey_assessment import evaluate as evaluate_journey
+        raw={a.task_id:a.payload for a in db.scalars(select(Answer).where(Answer.session_id==id))}
+        scores=evaluate_journey(tasks,raw)
+    elif s.algorithm_version=='domains-1.0.0':
         from .domain_tests import evaluate as evaluate_domain
         scores=evaluate_domain(tasks,answers,db.get(TaskSet,s.task_set_id).code.split('-')[1])
     else:scores=adaptive.evaluate(tasks,answers,s.conditions) if s.task_trace else assessment.evaluate(tasks,answers)
@@ -216,6 +223,9 @@ def result_get(id:str,user=Depends(parent),db=Depends(get_db)):
     return r
 
 def recommendations(db,s):
+    if s.algorithm_version=='discovery-1.0.0':
+        from .recommendation_v2 import recommendations as market_recommendations
+        return market_recommendations(s.id,user=db.get(User,db.get(Child,s.child_id).owner_id),db=db,format='',max_price=None,schedule='')
     r=db.scalar(select(Result).where(Result.session_id==s.id))
     if not r:raise HTTPException(409,'Сначала завершите тест')
     age=s.child_snapshot['age'];city=s.child_snapshot['city'].strip().casefold()
@@ -335,6 +345,8 @@ app.include_router(recommendation_router)
 
 from .domain_tests import router as domain_router
 app.include_router(domain_router)
+from .journey import router as journey_router
+app.include_router(journey_router)
 
 
 

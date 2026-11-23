@@ -42,14 +42,23 @@ def recommendations(id:str,format:str='',max_price:int|None=Query(None,ge=0,le=1
         if c.city.casefold()!=snapshot['city'].strip().casefold():continue
         try:club,info=public_program(db,c.id)
         except HTTPException:continue
+        if session.algorithm_version=='discovery-1.0.0' and info and 'direction:consultation' in info.tags:continue
         if format and (not info or info.format!=format):continue
         if max_price is not None and (not info or info.price_rub>max_price):continue
         if schedule and (not info or schedule.casefold() not in info.schedule.casefold()):continue
         points=rule.priority;reasons=['Возраст и город соответствуют профилю на момент прохождения.']
         if info and interests.intersection(t.casefold() for t in info.tags):points+=w['interests'];reasons.append('Совпадают указанные интересы.')
         group=result.scores.get(rule.metric)
-        if group and rule.minimum<=group['percent']<=rule.maximum:points+=w['result'];reasons.append('Совпало предварительное правило каталога для этого набора заданий.')
+        if session.algorithm_version=='discovery-1.0.0':
+            from .journey_assessment import reason
+            from .journey_content import DIRECTIONS
+            directions=[t.removeprefix('direction:') for t in (info.tags if info else []) if t.startswith('direction:')]
+            direction=max((d for d in directions if d in DIRECTIONS),key=lambda d:result.scores['affinities'].get(d,0),default=None)
+            if direction:
+                points+=w['result']*result.scores['affinities'].get(direction,0)/10
+                reasons.append(reason(direction,{k:result.scores[k] for k in ('logic','attention','memory','spatial','story') if k in result.scores},result.scores.get('preferences',{})))
+        elif group and rule.minimum<=group['percent']<=rule.maximum:points+=w['result'];reasons.append('Совпало предварительное правило каталога для этого набора заданий.')
         for active,key,label in [(bool(format),'format','Выбранный формат.'),(max_price is not None,'budget','В пределах выбранного бюджета.'),(bool(schedule),'schedule','Совпало расписание.')]:
             if active:points+=w[key];reasons.append(label)
-        items.append({'club':c,'explanation':' '.join(reasons),'rules_version':'weighted-1.0.0','score':points})
+        items.append({'club':c,'explanation':' '.join(reasons),'rules_version':'discovery-match-1.0.0' if session.algorithm_version=='discovery-1.0.0' else 'weighted-1.0.0','score':points})
     return sorted(items,key=lambda item:(-item['score'],item['club'].id))[:5]

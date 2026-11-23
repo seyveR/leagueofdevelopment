@@ -165,7 +165,11 @@ def market_detail(id:str,user=Depends(parent),db=Depends(get_db)):
     club,info=public_program(db,id)
     slots=db.scalars(select(TrialSlot).where(TrialSlot.club_id==id,TrialSlot.enabled==True,TrialSlot.starts_at>now()).order_by(TrialSlot.starts_at))
     reviews=db.scalars(select(Review).where(Review.club_id==id,Review.status=='published').order_by(Review.created_at.desc())).all()
-    return {**program_data(db,club),'slots':[data(s,'id starts_at capacity') for s in slots],
+    slot_items=[]
+    for s in slots:
+        occupied=db.scalar(select(func.count()).select_from(Booking).where(Booking.slot_id==s.id,Booking.status.in_(['new','accepted','completed','cancellation_requested'])))
+        slot_items.append({**data(s,'id starts_at capacity'),'remaining':max(0,s.capacity-occupied)})
+    return {**program_data(db,club),'slots':slot_items,
             'reviews':[data(r,'id rating message created_at') for r in reviews],'rating':round(sum(r.rating for r in reviews)/len(reviews),1) if reviews else None,
             'favorite':bool(db.get(Favorite,(user.id,id))),'organization':data(db.get(Organization,info.organization_id),'id name') if info and info.organization_id else None}
 @router.get('/favorites')

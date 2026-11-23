@@ -72,7 +72,8 @@ class ClubInput(Input):
     def valid(self):
         from urllib.parse import urlparse
         if self.min_age>self.max_age: raise ValueError('Проверьте возрастной диапазон')
-        if self.photo_url and (urlparse(self.photo_url).scheme not in ('http','https') or not urlparse(self.photo_url).netloc): raise ValueError('Нужен URL http или https')
+        local_photos={'/catalog/'+name+'.jpg' for name in ('art','robot','laboratory','sport')}
+        if self.photo_url and self.photo_url not in local_photos and (urlparse(self.photo_url).scheme not in ('http','https') or not urlparse(self.photo_url).netloc): raise ValueError('Нужен URL http или https либо фотография каталога')
         return self
 
 class RuleInput(Input):

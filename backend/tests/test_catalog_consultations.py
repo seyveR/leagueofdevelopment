@@ -8,12 +8,12 @@ from .test_api import admin_client
 from .test_marketplace import upgrade
 
 def test_favorites_and_catalog_filters_are_personal(client):
-    register(client);clubs=client.get('/api/market/programs?age=8&city=Архангельск').json();assert len(clubs)==6
+    register(client);clubs=client.get('/api/market/programs?age=8&city=Архангельск').json();assert len(clubs)==10
     id=clubs[0]['id']
     for _ in range(2):assert client.put('/api/favorites/'+id).status_code==200
     assert client.get('/api/favorites').json()==[id]
     other=TestClient(app);register(other,'favorite-other@example.com');assert other.get('/api/favorites').json()==[]
-    assert client.get('/api/market/programs?max_price=0').json()==[]
+    free=client.get('/api/market/programs?max_price=0').json();assert free and all(p['details']['price_rub']==0 for p in free)
     assert client.get('/api/market/programs?age=99').status_code==422
     assert client.get('/api/market/programs?format=unknown').status_code==422
     assert client.delete('/api/favorites/'+id).status_code==200
