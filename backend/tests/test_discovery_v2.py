@@ -1,7 +1,7 @@
 from uuid import uuid4
 import pytest
 from collections import Counter
-from app.discovery_v2 import SETS,VERSION,evaluate
+from app.discovery_v21 import SETS,VERSION,evaluate
 from app.journey_content import DIRECTIONS
 from .conftest import register
 from .test_api import create_child
@@ -36,16 +36,25 @@ def test_full_age_sets_resume_thresholds_and_matching(client,age,group,count):
     recs=client.get('/api/market/recommendations/'+id).json();assert recs and all('атлетик' in r['club']['name'].lower() or 'гимнастик' in r['club']['name'].lower() for r in recs)
     assert client.post('/api/sessions/'+id+'/complete').json()['id']==finished.json()['id']
 
-def test_no_forced_recommendations_and_creative_fallback():
+def test_no_forced_recommendations_and_no_direct_interest_questions():
+    for spec in SETS.values():
+        assert all(t['mechanic']!='preference' and not t['prompt'].startswith('Хочешь') for t in spec['tasks'])
     tasks=SETS['15-17']['tasks']
-    answers={t['id']:response(t,False,'2') for t in tasks}
-    result=evaluate(tasks,answers);assert not result['recommended_codes'] and not result['directions'] and result['support']
-    art=next(t for t in tasks if t['direction']=='art' and t['mechanic']=='preference')
-    answers[art['id']]={'selected':['0']}
-    result=evaluate(tasks,answers);assert result['recommended_codes']==['art'] and not result['directions'] and result['exploratory']
+    answers={t['id']:response(t,False) for t in tasks}
+    result=evaluate(tasks,answers)
+    assert not result['recommended_codes'] and not result['directions'] and result['support']
+    assert not result['preferences'] and not result['exploratory']
+    for t in tasks:
+        if t['direction']=='art':answers[t['id']]=response(t)
+    result=evaluate(tasks,answers)
+    assert result['recommended_codes']==['art'] and result['directions'][0]['code']=='art'
+    sixth=tasks[5]
+    assert 'каждый раз используя полученное число' in sixth['prompt']
+    assert next(c['label'] for c in sixth['config']['choices'] if c['id']==sixth['config']['key'][0])=='17'
+
 
 def test_perfect_all_directions_have_conditional_alternatives():
     tasks=SETS['8-10']['tasks'];result=evaluate(tasks,{t['id']:response(t) for t in tasks})
     assert len(result['directions'])==1 and len(result['alternatives'])==2
     assert set(result['performance'].values())=={100}
-    assert set(result['preferences'])==set(DIRECTIONS)
+    assert not result['preferences']

@@ -9,20 +9,21 @@ from .schemas import Input
 from .security import parent
 from .platform_services import consent_required
 from .journey_content import GROUPS, SETS as LEGACY_SETS, group_for, public_task
-from .discovery_v2 import VERSION,SETS
+from .discovery_v2 import SETS as V2_SETS
+from .discovery_v21 import VERSION,SETS
 from .journey_assessment import validate
 
 router=APIRouter(prefix='/api/journey',tags=['Возрастной путь'])
 
 def seed_sets(db):
-    for spec in [*LEGACY_SETS.values(),*SETS.values()]:
+    for spec in [*LEGACY_SETS.values(),*V2_SETS.values(),*SETS.values()]:
         if not db.get(TaskSet,spec['id']):db.add(TaskSet(**spec,active=True))
 
 def owned(db,id,user,lock=False):
     query=select(TestSession).join(Child).where(TestSession.id==id,Child.owner_id==user.id)
     if lock:query=query.with_for_update(of=TestSession)
     session=db.scalar(query)
-    if not session or session.algorithm_version not in ('discovery-1.0.0',VERSION):raise HTTPException(404,'Прохождение не найдено')
+    if not session or session.algorithm_version not in ('discovery-1.0.0','discovery-2.0.0',VERSION):raise HTTPException(404,'Прохождение не найдено')
     return session
 
 @router.get('')

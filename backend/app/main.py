@@ -137,7 +137,7 @@ def start(body:StartInput,user=Depends(parent),db=Depends(get_db)):
     from .platform_services import consent_required
     consent_required(db,user)
     # Row-lock on child serializes starts, including concurrent retries.
-    old=db.scalar(select(TestSession).where(TestSession.child_id==child.id,TestSession.status=='in_progress',TestSession.algorithm_version.not_in(['domains-1.0.0','discovery-1.0.0','discovery-2.0.0'])))
+    old=db.scalar(select(TestSession).where(TestSession.child_id==child.id,TestSession.status=='in_progress',TestSession.algorithm_version.not_in(['domains-1.0.0','discovery-1.0.0','discovery-2.0.0','discovery-2.1.0'])))
     if old: return old
     existing=db.get(TestSession,body.request_id)
     if existing:
@@ -202,9 +202,11 @@ def complete(id:str,user=Depends(parent),db=Depends(get_db)):
     if previous:return previous
     tasks=adaptive.tasks_for(db,s);answers={a.task_id:a.option_id for a in db.scalars(select(Answer).where(Answer.session_id==id)).all()}
     if s.position!=len(tasks) or set(answers)!={t['id'] for t in tasks}: raise HTTPException(409,'Ответьте на все обязательные задания')
-    if s.algorithm_version not in (assessment.VERSION,'familiarisation-2.0.0','domains-1.0.0','discovery-1.0.0','discovery-2.0.0'): raise HTTPException(409,'Нужна сохранённая версия алгоритма')
+    if s.algorithm_version not in (assessment.VERSION,'familiarisation-2.0.0','domains-1.0.0','discovery-1.0.0','discovery-2.0.0','discovery-2.1.0'): raise HTTPException(409,'Нужна сохранённая версия алгоритма')
     if s.algorithm_version.startswith('discovery-'):
-        if s.algorithm_version=='discovery-2.0.0':
+        if s.algorithm_version=='discovery-2.1.0':
+            from .discovery_v21 import evaluate as evaluate_journey
+        elif s.algorithm_version=='discovery-2.0.0':
             from .discovery_v2 import evaluate as evaluate_journey
         else:
             from .journey_assessment import evaluate as evaluate_journey

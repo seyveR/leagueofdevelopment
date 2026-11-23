@@ -1,7 +1,7 @@
 import {request} from './api';
 import type {Session} from '../domain/api-models';
 
-export const journeyVersion='discovery-2.0.0';
+export const journeyVersion='discovery-2.1.0';
 export function journeyPresentation(age:number){
   if(age<8)return {title:'Первые открытия',description:'Играй с картинками, собирай истории и решай маленькие задачи. В конце узнаем, какие занятия попробовать.'};
   if(age<11)return {title:'Мир исследователя',description:'Собирай планы и истории, находи закономерности и решай задачи. По твоим ответам подберём интересные кружки.'};
