@@ -26,7 +26,7 @@
   .app-navigation a>.nav-icon {width:48px;height:30px;border-radius:16px;transition:background .15s}
   .app-navigation a>.nav-label {font-size:11px;line-height:16px;letter-spacing:0;white-space:nowrap}
   .app-navigation a.active {background:transparent;color:#235e56}
-  .app-navigation a.active .nav-icon {background:#d6ece5}
+  .app-navigation a.active .nav-icon {background:transparent}
   .app-navigation a.active .nav-label {font-weight:750}
   .app-navigation a:hover {background:#edf1ed}
   .footer {margin:24px 20px calc(84px + env(safe-area-inset-bottom));padding:20px 0}
