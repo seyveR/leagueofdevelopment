@@ -80,4 +80,4 @@ def reason(direction,metrics,preferences):
     sources={'technical':['logic','spatial'],'natural':['attention','logic'],'art':['spatial','story'],'social':['story','memory'],'sport':['attention','spatial']}[direction]
     parts=[f"{LABELS[k]}: {metrics[k]['correct']} из {metrics[k]['total']} действий" for k in sources if k in metrics]
     if preferences.get(direction):parts.append('есть выбор этого направления в творческих заданиях')
-    return '; '.join(parts)+'. Это повод попробовать занятие, а не вывод о склонностях.'
+    return '; '.join(parts)+'.'

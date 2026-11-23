@@ -10,8 +10,10 @@ def seed(db):
     catalog=[('Рисование','Рисование и работа с деталями.','any','Занятия с цветом, формой и деталями.'),('Конструирование','Сборка моделей по образцу.','attention','Работа по образцу и последовательным инструкциям.'),('Музыка','Ритмические упражнения и знакомство с инструментами.','memory','Повторение ритмов и музыкальных последовательностей.'),('Природа','Наблюдения за растениями и ведение дневника.','any','Наблюдение и описание окружающего мира.'),('Театр','Небольшие постановки и работа с текстом.','any','Работа с текстом, последовательностью действий и ролями.'),('Шахматы','Изучение правил и решение учебных задач.','any','Знакомство с правилами и планированием ходов.')]
     for i,(name,description,metric,explanation) in enumerate(catalog):
         id=str(uuid5(NAMESPACE_DNS,f'liga.seed.club.{i}'))
-        if db.get(Club,id):continue
-        db.add(Club(id=id,name=name,description=description,min_age=7,max_age=10,city='Архангельск',address=f'Учебный адрес, {i+1}',phone=f'+7 (000) 000-00-0{i+1}',price=f'{1800+i*200} ₽ / месяц',photo_url='',archived=False));db.flush()
+        if db.get(Club,id):
+            db.get(Club,id).archived=True
+            continue
+        db.add(Club(id=id,name=name,description=description,min_age=7,max_age=10,city='Архангельск',address=f'Учебный адрес, {i+1}',phone=f'+7 (000) 000-00-0{i+1}',price=f'{1800+i*200} ₽ / месяц',photo_url='',archived=True));db.flush()
         db.add(Rule(club_id=id,metric=metric,minimum=0,maximum=67 if metric!='any' else 100,priority=10 if metric!='any' else 0,explanation=explanation))
     from .age_tasks import SCENARIOS
     for scenario in SCENARIOS.values():

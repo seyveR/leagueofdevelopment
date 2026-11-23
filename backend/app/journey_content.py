@@ -77,6 +77,9 @@ SETS={f'{a}-{b}':make_set(i,(a,b)) for i,(a,b) in enumerate(GROUPS)}
 
 def public_task(task, phase):
     cfg={k:v for k,v in task['config'].items() if k not in ('key','direction_key')}
+    task=dict(task)
+    short={'d1':'Выбери до трёх идей для коробки.','d2':'Дорисуй фигуру.','d3':'Идёт дождь. Что помогает растениям, а что мешает гулять?','d4':'Как достать мяч из-под дивана? Покажи по порядку.','d5':'Что здесь лишнее? Почему?','d6':'Что будет дальше?','d7':'Запомни картинки. Скрой их и найди снова.','d8':'Найди все закрашенные звёздочки ★.','d9':'Веди робота по стрелкам.','d10':'Что было сначала? Собери историю.'}
+    if task['id'] in ('d5','d6','d7','d8','d9','d10') or (task['id']=='d1' and 'Коробка' in task['prompt']) or (task['id']=='d2' and task['config'].get('shape')=='circle') or (task['id']=='d3' and 'дождь' in task['prompt']) or (task['id']=='d4' and 'диван' in task['prompt']):task['prompt']=short.get(task['id'],task['prompt'])
     if task['mechanic']=='memory':
         if phase=='view':cfg.pop('choices',None)
         else:cfg.pop('material',None)

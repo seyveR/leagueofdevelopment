@@ -8,7 +8,7 @@ from .test_api import admin_client
 from .test_marketplace import upgrade
 
 def test_favorites_and_catalog_filters_are_personal(client):
-    register(client);clubs=client.get('/api/market/programs?age=8&city=Архангельск').json();assert len(clubs)==10
+    register(client);clubs=client.get('/api/market/programs?age=8&city=Архангельск').json();assert len(clubs)==4
     id=clubs[0]['id']
     for _ in range(2):assert client.put('/api/favorites/'+id).status_code==200
     assert client.get('/api/favorites').json()==[id]
